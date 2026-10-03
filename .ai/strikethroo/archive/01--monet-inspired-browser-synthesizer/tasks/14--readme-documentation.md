@@ -23,8 +23,8 @@ Fill the currently zero-byte `README.md` so anyone can start the site and unders
 - **markdown** — README structure, tables, code fences.
 
 ## Acceptance Criteria
-- [ ] `README.md` is no longer zero bytes and states what the site is in one paragraph: a Monet-impressionist-themed polyphonic browser synthesizer, and that the site lives at `https://soc.ddev.site/`.
-- [ ] Startup is documented: `ddev start`, then open `https://soc.ddev.site/`, with the docroot noted as `web/`.
+- [ ] `README.md` is no longer zero bytes and states what the site is in one paragraph: a Monet-impressionist-themed polyphonic browser synthesizer, and that the site lives at `https://synth-like-thing.ddev.site/`.
+- [ ] Startup is documented: `ddev start`, then open `https://synth-like-thing.ddev.site/`, with the docroot noted as `web/`.
 - [ ] A control map by section is present as a table or list, covering all eight regions: global strip, the three oscillator cores, the wavesampler, voice mixer, the two filters, the amp and filter envelopes, the three LFOs, the 8x8 modulation matrix, the effects chain, the 808 kit, the sequencer and patterns, the arpeggiator, and the keyboard.
 - [ ] The power-on requirement is stated explicitly with its reason: browsers block audio until a user gesture, so the instrument is presented powered off and the first click resumes the `AudioContext`.
 - [ ] It states that the 808 kit and the four factory wavetables are **generated in the browser**, and that wavetable `.wav` files are **user-supplied** — no audio files ship with the site.
@@ -36,7 +36,7 @@ Fill the currently zero-byte `README.md` so anyone can start the site and unders
 
 ## Technical Requirements
 - Plain Markdown, no HTML and no build tooling.
-- The URL is `https://soc.ddev.site/`; the DDEV project is `soc`; the docroot is `web/`.
+- The URL is `https://synth-like-thing.ddev.site/`; the DDEV project is `synth-like-thing`; the docroot is `web/`.
 - Read the finished control surfaces and the store's default parameter set before writing, so the control map matches what actually exists rather than what was planned. Names, ranges and mode labels must match the implementation exactly.
 - No marketing language. The README answers: what is this, how do I run it, what does each control do, why is it silent until I click, and where is my patch saved.
 

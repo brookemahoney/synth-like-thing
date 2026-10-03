@@ -51,7 +51,7 @@ import { execFileSync } from 'node:child_process';
 import { KEY_COUNT, KEY_HIGH, KEY_LOW } from '../web/ui/keyboard.js';
 import { REGION_ORDER } from '../web/ui/surface.js';
 
-const SITE = process.env.SITE_URL ?? 'https://soc.ddev.site/';
+const SITE = process.env.SITE_URL ?? 'https://synth-like-thing.ddev.site/';
 const SESSION = `responsive-${process.pid}`;
 const PHONE = { width: 390, height: 844 };
 const DESKTOP = { width: 1600, height: 1000 };

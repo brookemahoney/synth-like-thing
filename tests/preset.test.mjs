@@ -190,8 +190,8 @@ function readBack(store, bank) {
 
 test('the storage key is namespaced and versioned, and the version lives in the document too', () => {
   const { system, storage } = harness();
-  assert.equal(STORAGE_KEY, 'soc.synth.presets.v1');
-  assert.ok(STORAGE_KEY.startsWith('soc.'), 'namespaced by application');
+  assert.equal(STORAGE_KEY, 'synth-like-thing.synth.presets.v1');
+  assert.ok(STORAGE_KEY.startsWith('synth-like-thing.'), 'namespaced by application');
   assert.ok(STORAGE_KEY.endsWith('.v1'), 'and versioned');
   assert.equal(SCHEMA_VERSION, 1);
 

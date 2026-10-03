@@ -30,7 +30,7 @@ Give the instrument memory: twelve named preset slots in `localStorage` under a 
 
 ## Acceptance Criteria
 - [ ] Twelve slots exist and are individually addressable by name. Verified by `playwright-cli eval` enumerating 12 slots and writing a different value to each, then reading all 12 back.
-- [ ] A patch saved to a slot **survives a full page reload** with all parameters, patterns, chain order and tempo intact. Verified concretely: move one knob to a distinctive value, set a distinctive tempo, write a distinctive pattern step and chain order, save, run `playwright-cli goto https://soc.ddev.site/` to reload, then `playwright-cli eval` the restored values and confirm an exact match.
+- [ ] A patch saved to a slot **survives a full page reload** with all parameters, patterns, chain order and tempo intact. Verified concretely: move one knob to a distinctive value, set a distinctive tempo, write a distinctive pattern step and chain order, save, run `playwright-cli goto https://synth-like-thing.ddev.site/` to reload, then `playwright-cli eval` the restored values and confirm an exact match.
 - [ ] The stored document includes all four patterns, the chain order, swing, tempo and any user-loaded wavetables. Verified by writing each and confirming each survives the reload.
 - [ ] Export produces a JSON file containing all of it, and import reads one back. Verified by exporting, reading the emitted JSON, changing several parameters, importing, and confirming the original values return exactly.
 - [ ] Import **validates before replacing anything**. Verified by importing a malformed JSON document and confirming the instrument's current state is untouched and still playable, and that the captured-error array records the reason.
@@ -41,7 +41,7 @@ Give the instrument memory: twelve named preset slots in `localStorage` under a 
 - [ ] `localStorage` content is readable through the runtime inspection path for self-validation step 12.
 
 ## Technical Requirements
-- Storage key is namespaced and versioned, for example `soc.synth.presets.v1`.
+- Storage key is namespaced and versioned, for example `synth-like-thing.synth.presets.v1`.
 - A stored document carries a schema version field. On load, a version mismatch is a controlled fallback to the init patch with a logged reason — never a partial apply.
 - The document contains: schema version, the full flat parameter map, four patterns, chain order, swing, tempo, and any user-loaded wavetables (as serialized sample data or as the resampled 2048-point table — pick one, document the choice and the size implication of a `localStorage` quota).
 - `localStorage` has a size quota. A loaded wavetable can be large. Handle quota exhaustion as a save failure with a visible reason, not a silent truncation.

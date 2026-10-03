@@ -25,7 +25,7 @@ Repaint the shell from Component 1 in the manner of Claude Monet: a warm parchme
 - **canvas-rendering** — Canvas 2D for the impasto texture and the reactive dab ring buffer.
 
 ## Acceptance Criteria
-- [ ] The page ground is a warm parchment base around `#f2ead8` with at least two broad soft gradient washes and a fine noise/impasto texture layered over it; no region reads as flat digital fill. Verified: `playwright-cli open https://soc.ddev.site/` then `playwright-cli screenshot` — the ground is visible, textured, and painted.
+- [ ] The page ground is a warm parchment base around `#f2ead8` with at least two broad soft gradient washes and a fine noise/impasto texture layered over it; no region reads as flat digital fill. Verified: `playwright-cli open https://synth-like-thing.ddev.site/` then `playwright-cli screenshot` — the ground is visible, textured, and painted.
 - [ ] No dark brushed-metal styling appears anywhere. Verified by screenshot at desktop width: no dark metallic panel, no machined-screw aesthetic, no charcoal-on-black region.
 - [ ] The five palette hues (sage, atrium sky, rose madder, ochre, lavender) are assigned per functional section via CSS custom properties — oscillator hues, drum-lane hues, and a distinct step-playhead accent — so colour identifies section membership rather than decorating.
 - [ ] Region order at desktop width matches Thor: global strip across the top, then voice row, tone row, modulation row, effects row, 808 kit, full-width sequencer and arpeggiator, on-screen keyboard. Verified by screenshot.

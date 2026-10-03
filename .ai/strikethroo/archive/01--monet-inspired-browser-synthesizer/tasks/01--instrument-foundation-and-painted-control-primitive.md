@@ -31,12 +31,12 @@ Land the first files in the empty `web/` docroot so the site stops 403ing, and b
 - **accessibility** — real focusable form elements, accessible names, `aria-valuenow`, arrow-key stepping, `aria-pressed` on toggles.
 
 ## Acceptance Criteria
-- [ ] `curl -sS -o /dev/null -w '%{http_code}\n' https://soc.ddev.site/` prints `200` (it prints `403` before this task).
+- [ ] `curl -sS -o /dev/null -w '%{http_code}\n' https://synth-like-thing.ddev.site/` prints `200` (it prints `403` before this task).
 - [ ] `web/` contains `index.html`, at least one `styles/` CSS file, and an `audio/` and `ui/` ES module directory. No package.json, no bundler config, no CDN `<script>` or `<link>` tag.
 - [ ] The parameter store exposes get / set / subscribe and is the only place a parameter value lives. No component holds a private copy of a control's value.
 - [ ] A single control factory creates knobs, vertical faders, horizontal faders, toggles and step buttons from one configuration object (type, range, mapping, hue, label, parameter key). Dragging, keyboard stepping, clamping and ARIA state exist in that one implementation only — grepping for a second `setPointerCapture` or a second arrow-key handler in `ui/` returns nothing.
 - [ ] Continuous (rotary/fader) controls apply value changes through a short scheduled ramp rather than by writing a value at gesture time; switch-like toggles may write directly.
-- [ ] Every control renders as real semantic markup (a focusable `input`/`button` with a label) whose painted appearance is presentation layered over it. Verified concretely: `playwright-cli open https://soc.ddev.site/` then `playwright-cli eval` counting focusable form controls returns a non-zero number, and every one of them reports a non-empty accessible name.
+- [ ] Every control renders as real semantic markup (a focusable `input`/`button` with a label) whose painted appearance is presentation layered over it. Verified concretely: `playwright-cli open https://synth-like-thing.ddev.site/` then `playwright-cli eval` counting focusable form controls returns a non-zero number, and every one of them reports a non-empty accessible name.
 - [ ] Arrow keys change a focused knob's value: `playwright-cli press` `ArrowUp` with a knob focused increases the store value and `ArrowDown` decreases it, confirmed by re-reading the store via `playwright-cli eval`.
 - [ ] Toggles and step buttons expose `aria-pressed` and flip it on click.
 - [ ] The store and the control factory are documented in one short module header each so later tasks can use them without reading their source.

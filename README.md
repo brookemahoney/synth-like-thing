@@ -1,7 +1,7 @@
 # Atelier
 
 A Monet-impressionist-themed polyphonic browser synthesiser, served from the `web/`
-docroot of a DDEV project named `soc` and reachable at <https://soc.ddev.site/>: three
+docroot of a DDEV project named `synth-like-thing` and reachable at <https://synth-like-thing.ddev.site/>: three
 oscillator cores plus a wavetables voice, cascaded resonant filters, an 8×8 modulation
 matrix, a synthesized eleven-voice 808 kit, a sixteen-step sequencer, an arpeggiator, EQ,
 delay and reverb, painted as impasto dabs and brush strokes on a parchment ground. There
@@ -13,7 +13,7 @@ is no build step and no dependency: `web/` is served as it sits on disk.
 ddev start
 ```
 
-Then open <https://soc.ddev.site/>. The docroot is `web/`, so `web/index.html` is the
+Then open <https://synth-like-thing.ddev.site/>. The docroot is `web/`, so `web/index.html` is the
 site root; nothing is compiled, bundled or installed to serve it. `ddev` must be
 installed and the project's containers running for that URL to answer.
 
@@ -203,7 +203,7 @@ the panel's status line, and the slot keeps whatever it was playing.
 ## Presets
 
 Twelve slots, addressed 1 to 12, in `localStorage` under one versioned key:
-`soc.synth.presets.v1`. A slot holds one schema-versioned document — every parameter, all
+`synth-like-thing.synth.presets.v1`. A slot holds one schema-versioned document — every parameter, all
 four sequencer patterns, the chain order, swing, tempo, and any user-loaded wavetable.
 `global.power`, `global.run` and `seq.step` are the instrument's runtime and are never
 saved, so loading a patch cannot switch you off.
@@ -220,7 +220,7 @@ quoted for.
 
 ## Checking it in a browser
 
-Use the `playwright-cli` skill: `playwright-cli open https://soc.ddev.site/`, then
+Use the `playwright-cli` skill: `playwright-cli open https://synth-like-thing.ddev.site/`, then
 `snapshot`, `click` and `eval` against the refs it hands back. Nothing resumes the audio
 context but the POWER click, so an automated page stays silent until that click — verify
 the graph and the state rather than expecting to hear it.

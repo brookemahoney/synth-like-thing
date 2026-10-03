@@ -326,7 +326,7 @@ test('the impressionist stylesheet is first-party and names no image file', () =
   for (const [name, file] of [['paint.css', paintCss], ['paint.js', paintJs], ['index.html', html]]) {
     const withoutComments = file.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
     assert.ok(
-      !/(https?:)?\/\/(?!soc\.ddev\.site)/.test(withoutComments),
+      !/(https?:)?\/\/(?!synth-like-thing\.ddev\.site)/.test(withoutComments),
       `${name} must not reference a remote origin`,
     );
   }

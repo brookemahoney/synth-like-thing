@@ -32,7 +32,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { REPO_ROOT, WEB_ROOT, webModules } from './lib/modules.mjs';
 
-const SITE = process.env.SITE_URL ?? 'https://soc.ddev.site/';
+const SITE = process.env.SITE_URL ?? 'https://synth-like-thing.ddev.site/';
 const POWER_SELECTOR = '#ctl-global-power';
 
 function cli(args, { allowFailure = false } = {}) {

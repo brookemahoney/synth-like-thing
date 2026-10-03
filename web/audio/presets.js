@@ -3,7 +3,7 @@
  * versioned, namespaced key, one schema-versioned document per slot, and a JSON
  * export/import that round-trips the whole thing exactly.
  *
- *   STORAGE_KEY          'soc.synth.presets.v1' — namespaced by application, versioned by
+ *   STORAGE_KEY          'synth-like-thing.synth.presets.v1' — namespaced by application, versioned by
  *                        schema. The version is ALSO inside every document, because the
  *                        version that matters for an exported FILE is the one that travels
  *                        with it, and a key in a URL is not a document.
@@ -158,7 +158,7 @@ import { WAVE_TABLE_LENGTH, WAVE_TABLE_NAMES, waveSampler } from './wavesampler.
 /* ------------------------------------------------------------- the contract --- */
 
 /** Namespaced by application, versioned by schema. Printed by the UI and the tests. */
-export const STORAGE_KEY = 'soc.synth.presets.v1';
+export const STORAGE_KEY = 'synth-like-thing.synth.presets.v1';
 
 /** The schema version, in the key and inside every document. Bump together. */
 export const SCHEMA_VERSION = 1;

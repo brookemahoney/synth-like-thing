@@ -83,7 +83,7 @@ const rows = controlMapRows();
 test('the README is not empty and its opening paragraph says what the site is', () => {
   assert.ok(readme.length > 0, 'README.md is zero bytes');
   const opening = readme.slice(0, readme.indexOf('\n## '));
-  assert.match(opening, /https:\/\/soc\.ddev\.site\//, 'the opening paragraph must give the URL');
+  assert.match(opening, /https:\/\/synth-like-thing\.ddev\.site\//, 'the opening paragraph must give the URL');
   assert.match(opening, /polyphonic/i);
   assert.match(opening, /impressionist|Monet/);
   assert.match(opening, /synthesi[sz]er/i);
@@ -92,7 +92,7 @@ test('the README is not empty and its opening paragraph says what the site is', 
 test('the README documents the startup and the docroot', () => {
   const running = section('Running it');
   assert.match(running, /ddev start/);
-  assert.match(running, /https:\/\/soc\.ddev\.site\//);
+  assert.match(running, /https:\/\/synth-like-thing\.ddev\.site\//);
   assert.match(running, /web\//, 'the docroot must be named');
 });
 
