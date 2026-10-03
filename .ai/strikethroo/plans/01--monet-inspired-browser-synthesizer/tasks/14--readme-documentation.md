@@ -8,6 +8,9 @@ skills:
   - technical-writing
   - markdown
 complexity_score: 3
+owns:
+  - README.md
+  - tests/readme*
 execution_profile: "docs-and-config"
 ---
 # README: Site Purpose, Startup, Control Map and Persistence

@@ -9,6 +9,13 @@ skills:
   - file-api
   - data-persistence
 complexity_score: 5
+owns:
+  - web/audio/presets.js
+  - web/ui/preset-view.js
+  - tests/preset*
+readonly:
+  - web/audio/effects.js
+  - web/audio/wavesampler.js
 execution_profile: "standard-implementation"
 ---
 # Preset System: 12 localStorage Slots and JSON Round-Trip

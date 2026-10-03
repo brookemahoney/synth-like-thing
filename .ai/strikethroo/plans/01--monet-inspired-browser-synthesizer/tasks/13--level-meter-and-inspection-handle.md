@@ -9,6 +9,13 @@ skills:
   - javascript
   - canvas-rendering
 complexity_score: 5
+owns:
+  - web/ui/meter.js
+  - web/audio/meter.js
+  - tests/meter*
+readonly:
+  - web/audio/effects.js
+  - web/ui/paint.js
 execution_profile: "standard-implementation"
 ---
 # Level Meter and Runtime Inspection Handle

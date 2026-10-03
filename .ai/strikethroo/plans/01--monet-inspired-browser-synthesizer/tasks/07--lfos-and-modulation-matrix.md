@@ -8,6 +8,17 @@ skills:
   - web-audio-api
   - audio-dsp
 complexity_score: 7
+owns:
+  - web/audio/matrix.js
+  - web/audio/lfo.js
+  - web/audio/modulation.js
+  - tests/matrix*
+  - tests/lfo*
+  - tests/mod-*
+readonly:
+  - web/audio/filter.js
+  - web/audio/effects.js
+  - web/audio/voice.js
 complexity_notes: "Scored 7 and kept whole. Splitting the LFOs from the matrix would leave an intermediate state with an unconsumed source list and no way to verify either half in isolation; the matrix is what makes the LFOs observable, and the LFOs are what make the matrix non-trivial. Its correctness constraint — 64 routes must be summed into one vector per voice and clamped at a small number of defined points — is a property of the pair, not of either part."
 execution_profile: "complex-architecture"
 ---

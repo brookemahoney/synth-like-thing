@@ -9,6 +9,12 @@ skills:
   - audio-dsp
   - file-api
 complexity_score: 6
+owns:
+  - web/audio/wavesampler.js
+  - web/audio/engine.js
+  - web/ui/waveload.js
+  - tests/wave-sampler*
+  - tests/waveload*
 execution_profile: "complex-architecture"
 ---
 # Wavesampler with Factory Wavetables and User `.wav` Loading

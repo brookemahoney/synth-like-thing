@@ -8,6 +8,11 @@ skills:
   - css
   - canvas-rendering
 complexity_score: 6
+owns:
+  - web/styles/
+  - web/ui/paint.js
+  - web/index.html
+  - tests/paint*
 execution_profile: "standard-implementation"
 ---
 # Impressionist Visual Layer and Responsive Layout

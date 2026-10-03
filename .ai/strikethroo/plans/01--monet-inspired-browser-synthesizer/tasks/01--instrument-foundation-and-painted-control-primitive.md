@@ -9,6 +9,15 @@ skills:
   - javascript
   - accessibility
 complexity_score: 6
+owns:
+  - web/index.html
+  - web/styles/
+  - web/ui/
+  - web/audio/ramp.js
+  - tests/store*
+  - tests/controls*
+  - tests/surface*
+  - tests/ramp*
 execution_profile: "complex-architecture"
 ---
 # Instrument Foundation and Painted Control Primitive

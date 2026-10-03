@@ -8,6 +8,13 @@ skills:
   - web-audio-api
   - audio-dsp
 complexity_score: 6
+owns:
+  - web/audio/effects.js
+  - web/audio/master.js
+  - web/audio/ir.js
+  - web/audio/chain.js
+  - tests/effects*
+  - tests/ir*
 execution_profile: "complex-architecture"
 ---
 # Master Effects Chain: EQ, Delay, Reverb, Limiter and Analyser

@@ -11,6 +11,13 @@ skills:
   - audio-dsp
   - timing-scheduling
 complexity_score: 7
+owns:
+  - web/audio/clock.js
+  - web/audio/drums.js
+  - web/audio/drum-kit.js
+  - tests/clock*
+  - tests/808*
+  - tests/drum*
 complexity_notes: "Scored 7 and kept whole. The clock is the trunk every other timing consumer subscribes to — the sequencer, the arpeggiator and the tempo-synced LFOs all read it — so splitting clock from drums would leave tasks 7 and 10 with nothing to subscribe to. Splitting the drum synthesis recipes away from the clock is viable in principle but produces a drum kit that cannot be triggered, so it verifies nothing."
 execution_profile: "complex-architecture"
 ---

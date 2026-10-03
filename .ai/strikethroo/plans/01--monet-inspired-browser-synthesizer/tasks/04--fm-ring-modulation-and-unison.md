@@ -8,6 +8,13 @@ skills:
   - web-audio-api
   - audio-dsp
 complexity_score: 5
+owns:
+  - web/audio/osc-mod.js
+  - web/audio/voice.js
+  - tests/osc-mod*
+  - tests/fm*
+  - tests/unison*
+  - tests/ring*
 execution_profile: "standard-implementation"
 ---
 # FM, Ring Modulation and Unison Spread

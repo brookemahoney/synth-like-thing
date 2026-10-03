@@ -1,0 +1,42 @@
+# No install step: every check in this repo uses Node builtins only.
+# `web/` has no dependencies, so there is nothing to install, and the site must
+# keep working with the network offline.
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Invariants first: they run in well under a second and catch the
+      # structural mistakes the test suite would not notice — a module on disk
+      # that the page never loads, a second musical timer, a third-party origin,
+      # an asset in a docroot that generates all of its own sound and texture.
+      - name: invariants
+        run: node scripts/check-invariants.mjs
+
+      # Every task in a blueprint phase runs in parallel, so two of them writing
+      # one file is a coin toss. This reads the declared partition.
+      - name: parallel-dispatch ownership
+        run: node scripts/ownership.mjs
+
+      - name: tests
+        run: node --test tests/*.test.mjs
+
+# Playing the site is verified locally against a running DDEV, not here: it
+# needs a real browser and a served docroot, and a browser job that is red for
+# environmental reasons trains everyone to ignore it. See CONTRIBUTING.md.

@@ -8,6 +8,17 @@ skills:
   - web-audio-api
   - timing-scheduling
 complexity_score: 7
+owns:
+  - web/audio/sequencer.js
+  - web/audio/sequencer-run.js
+  - web/audio/arp.js
+  - web/audio/engine.js
+  - web/ui/sequencer-view.js
+  - web/ui/params.js
+  - web/ui/surface.js
+  - web/ui/main.js
+  - tests/sequencer*
+  - tests/arp*
 complexity_notes: "Scored 7 and kept whole. The sequencer, the pattern chain and the arpeggiator share one clock, one step cursor and one lane-rendering path; splitting them produces parts that cannot be verified against the beat. The requirement that all 4 patterns plus an arbitrary chain order loop correctly is only observable with the chain mode in place."
 execution_profile: "complex-architecture"
 ---

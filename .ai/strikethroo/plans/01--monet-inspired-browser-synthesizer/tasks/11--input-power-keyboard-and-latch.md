@@ -9,6 +9,13 @@ skills:
   - accessibility
   - event-handling
 complexity_score: 6
+owns:
+  - web/ui/keyboard.js
+  - web/ui/power.js
+  - web/index.html
+  - tests/keyboard*
+  - tests/power*
+  - tests/surface.test.mjs
 execution_profile: "standard-implementation"
 ---
 # Input: Power-On Gate, On-Screen Keyboard, Computer Keys and Latch

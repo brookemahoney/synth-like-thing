@@ -1,0 +1,14 @@
+#!/bin/sh
+# Pre-commit guardrail. Installed by `npm run hooks:install`.
+#
+# Runs the deterministic checks, not the browser: a commit should never need a
+# browser to be justified, and the tests already cover the audio.
+#
+# The browser-level checks live behind `npm run verify` and CI, because they
+# need a running DDEV site and take minutes rather than seconds.
+
+set -e
+
+echo "pre-commit: running invariants, ownership and tests"
+npm run --silent check
+echo "pre-commit: ok"

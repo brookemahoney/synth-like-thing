@@ -8,6 +8,14 @@ skills:
   - web-audio-api
   - audio-dsp
 complexity_score: 7
+owns:
+  - web/audio/
+  - web/ui/main.js
+  - web/ui/surface.js
+  - tests/voice*
+  - tests/pitch*
+  - tests/wave*
+  - tests/alloc*
 complexity_notes: "Scored 7 and kept whole rather than split. Splitting the allocator from the oscillator cores would produce an intermediate state that allocates voices but makes no sound, so nothing could be verified between the halves. It is already atomic in the sense that matters: one module, one deliverable, the raw note-producing layer. Acceptance criteria were sharpened instead — each one names a concrete command and expected output."
 execution_profile: "complex-architecture"
 ---

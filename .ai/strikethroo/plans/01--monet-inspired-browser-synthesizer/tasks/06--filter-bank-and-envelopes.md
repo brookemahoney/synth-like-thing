@@ -8,6 +8,14 @@ skills:
   - web-audio-api
   - audio-dsp
 complexity_score: 6
+owns:
+  - web/audio/filter.js
+  - web/audio/env.js
+  - web/audio/voice.js
+  - tests/filter*
+  - tests/env*
+  - tests/envelope*
+  - tests/voice-fake-audio.mjs
 execution_profile: "complex-architecture"
 ---
 # Filter Bank, Drive and Amp and Filter Envelopes
