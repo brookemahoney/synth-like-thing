@@ -30,6 +30,26 @@
  *      tests/drums-wiring.test.mjs asserts this import exists, so the kit cannot
  *      quietly leave the shipped graph again — which is exactly what happened when
  *      task 9 was verified by dynamically importing the module instead.
+ *   5. '../audio/sequencer-run.js' — TASK 010'S LINE, LOAD-BEARING. It binds the 16-step
+ *      sequencer, the four patterns, the chain and the arpeggiator to the clock above, the
+ *      kit above and task 3's note path, and constructs the sequencer that subscribes to
+ *      the clock's steps. Nothing in this file calls into it, so it is a bare
+ *      side-effect import for the same reason the kit's is: a binding import would be an
+ *      unused binding and a minifier could drop it. WITHOUT IT THE WHOLE SEQUENCER AND
+ *      ARPEGGIATOR ARE ABSENT from the delivered page while a probe that dynamically
+ *      imports the module still passes every check — the exact gap
+ *      tests/drums-wiring.test.mjs was written for. tests/sequencer.test.mjs asserts this
+ *      line exists.
+ *   6. '../audio/modulation.js' — TASK 007'S LINE. This, not `../audio/matrix.js`, is the
+ *      module that STARTS the modulation: it builds the three LFOs, the 8x8 matrix and the
+ *      matrix panel, and calls `startModulation()` at module scope. `matrix.js` on its own
+ *      is pure routing arithmetic and mounts nothing, so importing it would wire the graph
+ *      without ever switching it on. It mounts its panel on DOMContentLoaded, which is why
+ *      it survives the surface being drawn after this module graph has been evaluated.
+ *   7. './sequencer-view.js' — TASK 010'S PANEL BEHAVIOUR: the lane grid's clicks and
+ *      drags, the chain slots and the playhead attribute. Self-initialising like
+ *      ui/paint.js, and it must come after step 5 because its chain-slot click calls the
+ *      sequencer's ONE implementation of the order's rules.
  *
  * No global is published from here. The inspection handle belongs to the module
  * that owns it (task 13); until then, anything that needs the engine imports
@@ -39,5 +59,8 @@ import '../audio/ramp.js';
 import { buildSurface } from './surface.js';
 import '../audio/engine.js';
 import '../audio/drums.js';
+import '../audio/sequencer-run.js';
+import '../audio/modulation.js';
+import './sequencer-view.js';
 
 buildSurface();

@@ -20,10 +20,34 @@
  *   noteOn(event)          claim a voice and start it
  *   noteOff(id)            release the voice playing that id
  *   allNotesOff()          release everything (panic)
+ *   heldNotes()            the notes currently HELD, in the order they were pressed
+ *   noteHeld(note)         is that note held?
+ *   clearHeldNotes()       empty the registry (panic, latch off)
  *   setCoreModulation()    the modulation-matrix contribution, per core
  *   waveLevel() / setWaveLevelBias() / waveLevels()
  *                          the wavesampler's level: readable, and a modulation point
  *   voiceEngine            the handle: allocator, voices, live states, stats
+ *
+ * THE HELD-NOTE REGISTRY, AND WHY IT LIVES HERE
+ *   `heldNotes()` is the arpeggiator's keyboard source (task 10) and `noteHeld(note)` /
+ *   `clearHeldNotes()` are task 11's latch and panic. All three live in this file, on the
+ *   note path, because the plan is explicit that there must be ONE registry keyed by note
+ *   and not two lists that can drift: the keyboard, the latch, the panic and the
+ *   arpeggiator must agree about what is held, and the only place they cannot disagree is
+ *   the one function every note goes through.
+ *
+ *   THEREFORE: `noteOn` registers the note and `noteOff` unregisters it, automatically.
+ *   Task 11 calls `noteOn`/`noteOff` — which it has to call anyway to make a sound — and
+ *   the registry is correct with no extra wiring and nothing to forget. THE ONE ESCAPE
+ *   HATCH: a caller that passes `held: false` is making a note that must not count as
+ *   held. Task 10's sequencer and arpeggiator both do, because a sequenced note that
+ *   appeared in the registry would be arpeggiated by its own output, and would pollute a
+ *   held keyboard chord. The flag is documented at `normalise` and asserted by
+ *   tests/sequencer.test.mjs.
+ *
+ *   The registry is a Map keyed by note id, and `heldNotes()` returns the VALUES in press
+ *   order — As-Play's arpeggiator mode needs the order the notes were played in, which a
+ *   sorted MIDI list would have thrown away.
  *
  * WHAT THIS MODULE OWNS
  *   The allocator, the voice factory, the store fan-out, and the note path.
@@ -110,6 +134,51 @@ const allocator = createAllocator({
 
 let noteCounter = 0;
 
+/**
+ * THE HELD-NOTE REGISTRY. One entry per sounding note the player is HOLDING, keyed by the
+ * note id `noteOn` was given, and carrying the press order so As-Play has something to
+ * preserve. Written only by `noteOn` / `noteOff` / `clearHeldNotes` below.
+ *
+ * Insertion order IS press order, so `heldNotes()` needs no sort — and Map iteration order
+ * is insertion order by definition, which is why this is a Map and not an object.
+ */
+const held = new Map();
+
+/**
+ * The currently-held notes, in the order they were pressed:
+ *   [{ id, note, velocity, random, at, order }]
+ *
+ * A fresh array and a fresh record per entry, so a caller cannot mutate the registry
+ * through the result. This is task 10's arpeggiator's keyboard source and task 13's
+ * inspection readout — the same numbers, from the same place.
+ */
+export function heldNotes() {
+  return [...held.values()].map((entry) => ({ ...entry }));
+}
+
+/** Is that MIDI note currently held? Keyed by NOTE, so any id's note answers for itself. */
+export function noteHeld(note) {
+  const wanted = Number(note);
+  for (const entry of held.values()) if (entry.note === wanted) return true;
+  return false;
+}
+
+/**
+ * Empty the registry. The panic and the latch-off path: a voice can be released by a
+ * stolen allocation or a hand-placed `noteOff`, and this is the one call that makes the
+ * held set agree with what is actually sounding. Returns how many entries it dropped.
+ */
+export function clearHeldNotes() {
+  const dropped = held.size;
+  held.clear();
+  return dropped;
+}
+
+/** How many notes are held. Cheap; for diagnostics. */
+export function heldNoteCount() {
+  return held.size;
+}
+
 /** The additive, bipolar matrix contribution to `wave.level`. Zero until task 7. */
 let waveLevelBiasValue = 0;
 
@@ -140,6 +209,11 @@ function normalise(event = {}) {
     velocity: Number.isFinite(event.velocity) ? Math.max(0, Math.min(1, event.velocity)) : 0.8,
     random: Number.isFinite(event.random) ? event.random : Math.random(),
     at: Number.isFinite(event.at) ? event.at : contextTime(),
+    /* THE ONE FLAG THE HELD-NOTE REGISTRY HONOURS. Absent means "a player is holding
+       this", which is the keyboard's case; `false` means "a machine is playing this and it
+       must not count as held" — task 10's melodic lane and arpeggiator both pass it. */
+    held: event.held !== false,
+    order: noteCounter,
   };
 }
 
@@ -163,6 +237,10 @@ function applyWaveLevel(voice, value, { at, ramp = true } = {}) {
 /** Claim a voice and start it. Returns the voice, so a caller can read its state. */
 export function noteOn(event = {}) {
   const note = normalise(event);
+  /* THE REGISTRY. Before the allocator, so a note that is immediately stolen is still
+     recorded as pressed — the arpeggiator's chord is what the PLAYER is holding, not what
+     the pool could spare. Re-pressing the same id moves it rather than duplicating it. */
+  if (note.held) held.set(note.id, { id: note.id, note: note.note, velocity: note.velocity, random: note.random, at: note.at, order: note.order });
   const voice = allocator.acquire(note, note.at);
   // The incoming voice may have been stolen mid-note, so its previous wavesampler
   // source is still running and has to go before this note's one starts.
@@ -182,14 +260,16 @@ export function noteOn(event = {}) {
 /** Release the voice playing `id`. Harmless if it is already gone. */
 export function noteOff(id, { at } = {}) {
   const when = Number.isFinite(at) ? at : contextTime();
+  held.delete(id);
   const voice = allocator.noteOff(id, when);
   if (voice) stopWaveVoice(voice.index, { at: when, fade: WAVE_RELEASE_FADE_SECONDS });
   return voice;
 }
 
-/** Panic: release every sounding voice. */
+/** Panic: release every sounding voice, and empty the held-note registry with it. */
 export function allNotesOff({ at } = {}) {
   const when = Number.isFinite(at) ? at : contextTime();
+  clearHeldNotes();
   allocator.allNotesOff(when);
   stopAllWaveVoices({ at: when, fade: WAVE_RELEASE_FADE_SECONDS });
 }

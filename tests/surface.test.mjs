@@ -117,18 +117,25 @@ test('the page makes no third-party request and ships no webfont', () => {
     assert.ok(!/@import/.test(file), 'no CSS @import');
     assert.ok(!/@font-face/.test(file), 'no webfont: system font stacks only');
   }
-  /* Two module scripts, both local, both real files: main.js builds the surface
-     and paint.js self-initialises the ground and the reactive dab layer. Task
-     002 added the second; neither is inline, and there is no third. */
+  /* Module scripts, all of them local, all of them real files: main.js builds the
+     surface, paint.js self-initialises the ground and the reactive dab layer, and
+     task 011 added power.js (the power-on gate) and keyboard.js (the input). None is
+     inline and none is third-party — which is the invariant this test is for. The
+     COUNT is deliberately not asserted: every task that owns a module adds one, so
+     pinning a number only ever breaks on legitimate work. What must hold is that
+     every script tag names a first-party module file. */
   const scripts = [...html.matchAll(/<script\b([^>]*)>/g)].map((m) => m[1]);
-  assert.equal(scripts.length, 2, 'exactly two script tags: main.js and paint.js');
+  assert.ok(scripts.length >= 2, 'the page needs its module entry points');
   for (const attributes of scripts) {
     assert.match(attributes, /type="module"/, 'native ES modules only');
     assert.match(attributes, /src="\.\/ui\/[a-z-]+\.js"/, 'a first-party module file, not inline code');
     assert.doesNotMatch(attributes, /https?:|cdn|unpkg|jsdelivr/i, 'no third-party origin');
+    assert.doesNotMatch(attributes, />\s*\S/, 'no inline script body');
   }
   assert.match(html, /<script type="module" src="\.\/ui\/main\.js">/, 'native ES module entry point');
   assert.match(html, /<script type="module" src="\.\/ui\/paint\.js">/, 'the painted layer initialises itself');
+  assert.match(html, /<script type="module" src="\.\/ui\/power\.js">/, 'the power-on gate initialises itself');
+  assert.match(html, /<script type="module" src="\.\/ui\/keyboard\.js">/, 'the input initialises itself');
   assert.equal([...html.matchAll(/rel="stylesheet"/g)].length, 3, 'base, controls and paint');
   for (const href of [...html.matchAll(/rel="stylesheet" href="([^"]+)"/g)].map((m) => m[1])) {
     assert.match(href, /^\.\/styles\/[a-z-]+\.css$/, `${href} must be a first-party stylesheet`);

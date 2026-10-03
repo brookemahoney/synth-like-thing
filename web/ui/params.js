@@ -49,7 +49,10 @@
  *   reverb.*            decay, damping, preDelay, mix
  *   kit.<voice>.*       tune, decay, level, pan for
  *                       bd sd lt mt ht rs cp cb ch oh cy
- *   seq.pattern | seq.chain | seq.chainOrder
+ *   seq.pattern | seq.chain | seq.chainOrder | seq.step
+ *   seq.step             the PLAYHEAD: the firing step, 1..16. Written by the clock's
+ *                        subscriber (task 10) and read by the visual layer; never a
+ *                        painted control.
  *   seq.<lane>.on.<n>   1..16 for the 11 kit voices and 'melody'
  *   seq.<lane>.vel.<n>  per-step accent 0..100
  *   seq.melody.note.<n> | seq.melody.gate.<n>
@@ -234,6 +237,12 @@ function buildSchema() {
   s['seq.pattern'] = list(PATTERNS, 'A');
   s['seq.chain'] = bool(false);
   s['seq.chainOrder'] = rows([...PATTERNS]);
+  /* THE PLAYHEAD. Task 002's stylesheet resolves a step dab from `data-playing="true"`,
+     and this key is what the visual layer reads for the firing step. Task 002 flagged it
+     as needed and could not add it — it did not own this file. It is deliberately NOT a
+     painted control: a knob for the playhead would be a second, wrong surface for a
+     value that only the clock writes. */
+  s['seq.step'] = int(1, 16, 1);
   for (const lane of SEQUENCER_LANES) {
     for (let step = 1; step <= STEPS; step += 1) {
       const on = (KIT_DEFAULT_STEPS[lane] ?? []).includes(step);

@@ -23,7 +23,7 @@
  * there is never a second painted surface for a value: the store in ui/params.js
  * is the only authority, and a control only ever reads it.
  */
-import { KIT_VOICES, MATRIX_DESTINATIONS, MATRIX_SOURCES, store as defaultStore } from './params.js';
+import { KIT_VOICES, MATRIX_DESTINATIONS, MATRIX_SOURCES, PATTERNS, SEQUENCER_LANES, STEPS, store as defaultStore } from './params.js';
 import { createControl, prettyOption } from './controls.js';
 
 /** The eight regions, top to bottom. The vertical order is a contract. */
@@ -39,6 +39,22 @@ export const REGION_ORDER = [
 ];
 
 /* ------------------------------------------------------------- the sections --- */
+
+/** The row heads for the lane grid: two or three characters, so twelve rows fit a phone. */
+const LANE_SHORT = {
+  bd: 'BD', sd: 'SD', lt: 'LT', mt: 'MT', ht: 'HT',
+  rs: 'RS', cp: 'CP', cb: 'CB', ch: 'CH', oh: 'OH', cy: 'CY',
+  melody: 'MEL',
+};
+
+/** The melodic lane's own two rows of per-step controls: a chromatic note and a gate. */
+const melodicStepControls = (field, label, hue) =>
+  Array.from({ length: STEPS }, (_unused, index) => ({
+    type: 'hfader',
+    key: `seq.melody.${field}.${index + 1}`,
+    label: `${label}${index + 1}`,
+    hue,
+  }));
 
 const VOICE_NAMES = {
   bd: 'Bass Drum',
@@ -256,9 +272,22 @@ export const REGIONS = [
         controls: [
           { type: 'step', key: 'seq.chain', label: 'Chain', text: 'CHAIN', hue: 'sage' },
           { type: 'choice', key: 'seq.pattern', label: 'Pattern', hue: 'sage' },
+          /* THE MELODIC LANE'S OWN PER-STEP PARAMETERS. They are painted here rather than
+             left to the grid because a parameter with no control is unreachable from the
+             page, which is the exact gap tests/drums-wiring.test.mjs guards for the kit.
+             Sixteen of each is a lot of small faders; they are deliberately horizontal,
+             so the two rows read as two compact strips. */
+          ...melodicStepControls('note', 'N', 'ochre'),
+          ...melodicStepControls('gate', 'G', 'ochre'),
         ],
-        caption: 'Sixteen steps: eleven drum lanes and one melodic lane.',
-        steps: 16,
+        lanes: [...SEQUENCER_LANES],
+        slots: [...PATTERNS],
+        caption:
+          'Sixteen steps, twelve lanes. Click a cell to toggle it, drag it up and down for its '
+          + 'accent (shift-click steps through four presets), or press it to move the playhead to '
+          + 'that step. With CHAIN on, the four pattern slots build the chain in the order you '
+          + 'click them; click the last one again to clear it. N1-N16 are the melodic lane\'s '
+          + 'notes, G1-G16 its gate lengths.',
         className: 'panel--steps',
       },
       {
@@ -342,6 +371,8 @@ function buildPanel(panel, doc, store) {
   section.append(grid);
 
   if (panel.headers) section.append(buildHeaderGrid(panel.headers, doc));
+  if (panel.lanes) section.append(buildLaneGrid(panel.lanes, doc));
+  if (panel.slots) section.append(buildChainSlots(panel.slots, doc));
   if (panel.steps) section.append(buildStepRuler(panel.steps, doc));
 
   if (panel.caption) {
@@ -381,6 +412,111 @@ function buildHeaderGrid({ rows, columns }, doc) {
       wrap.append(cell);
     }
   }
+  return wrap;
+}
+
+/**
+ * THE LANE GRID: one row per lane, sixteen cells each, on the same `.headgrid` primitives
+ * the modulation matrix uses — the layout is the stylesheet's, only the contents are this
+ * module's. The seventeen columns are declared inline because the stylesheet's `.headgrid`
+ * is fixed at the matrix's eight and there is no `.lanegrid` rule to add to; the cells
+ * themselves take `data-lane`, `data-step` and the `.step` class that
+ * `styles/paint.css` already paints, including the `[data-playing="true"]` glisten.
+ *
+ * Every cell is a real `<button>` with an accessible name that states the lane, the step,
+ * whether it is on and its accent — so the grid is operable by keyboard and legible to a
+ * screen reader without a single ARIA grid role, which would require the full
+ * row/rowgroup/gridcell structure to be honest.
+ */
+function buildLaneGrid(lanes, doc) {
+  const wrap = doc.createElement('div');
+  wrap.className = 'headgrid lanegrid';
+  wrap.dataset.laneGrid = 'sequencer';
+  wrap.setAttribute('role', 'group');
+  wrap.setAttribute('aria-label', 'Sequencer: sixteen steps by twelve lanes');
+  /* One lane-name column then one column per step. minmax(0, …) throughout so the grid
+     fits the panel at a phone width instead of forcing the page to scroll. */
+  wrap.style.gridTemplateColumns = `minmax(0, 4.25rem) repeat(${STEPS}, minmax(0, 1fr))`;
+
+  const corner = doc.createElement('span');
+  corner.className = 'headgrid__corner';
+  wrap.append(corner);
+
+  for (let step = 1; step <= STEPS; step += 1) {
+    const head = doc.createElement('span');
+    head.className = 'headgrid__head headgrid__head--column';
+    head.textContent = String(step);
+    wrap.append(head);
+  }
+
+  for (const lane of lanes) {
+    const head = doc.createElement('span');
+    head.className = 'headgrid__head headgrid__head--row';
+    head.dataset.laneHead = lane;
+    head.textContent = LANE_SHORT[lane] ?? String(lane).toUpperCase();
+    head.title = VOICE_NAMES[lane] ?? (lane === 'melody' ? 'Melodic Synth' : lane);
+    wrap.append(head);
+
+    for (let step = 1; step <= STEPS; step += 1) {
+      const cell = doc.createElement('button');
+      cell.type = 'button';
+      cell.className = 'step';
+      cell.dataset.lane = lane;
+      cell.dataset.step = String(step);
+      cell.dataset.accents = STEPS;
+      cell.dataset.preset = '1';
+      cell.setAttribute('aria-pressed', 'false');
+      cell.setAttribute('aria-label', `${VOICE_NAMES[lane] ?? 'Melodic synth'} step ${step}, off`);
+      wrap.append(cell);
+    }
+  }
+  return wrap;
+}
+
+/**
+ * THE CHAIN SLOTS: one painted button per pattern, plus the order they have built.
+ *
+ * These are buttons and NOT painted controls on purpose. A painted control owns one store
+ * key and writes it on every gesture; a chain slot is a click that APPENDS to an ordered
+ * list, which is a different shape entirely. They reuse the control factory's own button
+ * classes so they are painted like every other switch on the page, and they carry
+ * `data-pattern` for the view module to bind.
+ */
+function buildChainSlots(patterns, doc) {
+  const wrap = doc.createElement('div');
+  wrap.className = 'panel__grid';
+  wrap.dataset.chainSlots = 'sequencer';
+
+  for (const pattern of patterns) {
+    const root = doc.createElement('div');
+    root.className = 'ctl ctl--step';
+    root.dataset.patternSlot = pattern;
+    root.dataset.hue = 'sage';
+
+    const paint = doc.createElement('div');
+    paint.className = 'ctl__paint ctl__paint--button';
+
+    const button = doc.createElement('button');
+    button.type = 'button';
+    button.className = 'ctl__input ctl__button';
+    button.dataset.pattern = pattern;
+    button.setAttribute('aria-pressed', 'false');
+    button.setAttribute('aria-label', `Pattern ${pattern}`);
+    const text = doc.createElement('span');
+    text.className = 'ctl__legend';
+    text.textContent = pattern;
+    button.append(text);
+    paint.append(button);
+    root.append(paint);
+    wrap.append(root);
+  }
+
+  const order = doc.createElement('output');
+  order.className = 'panel__caption';
+  order.dataset.chainOrder = 'sequencer';
+  order.setAttribute('aria-live', 'polite');
+  order.textContent = 'Chain: A-B-C-D';
+  wrap.append(order);
   return wrap;
 }
 

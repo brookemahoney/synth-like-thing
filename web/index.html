@@ -74,25 +74,13 @@
       <section class="region region--wide" data-region="keyboard" aria-labelledby="region-keyboard">
         <h2 class="region__title" id="region-keyboard">Keyboard</h2>
         <div class="region__panels" data-panels></div>
-        <!-- The keybed is laid out here so the region is visible; it becomes playable
-             with the input module, which is the only thing that may bind notes. -->
-        <div class="keybed" aria-hidden="true">
-          <div class="keybed__whites">
-            <span class="key key--white"></span><span class="key key--white"></span><span class="key key--white"></span>
-            <span class="key key--white"></span><span class="key key--white"></span><span class="key key--white"></span>
-            <span class="key key--white"></span><span class="key key--white"></span><span class="key key--white"></span>
-            <span class="key key--white"></span><span class="key key--white"></span><span class="key key--white"></span>
-            <span class="key key--white"></span><span class="key key--white"></span><span class="key key--white"></span>
-            <span class="key key--white"></span>
-          </div>
-          <div class="keybed__blacks">
-            <span class="key key--black"></span><span class="key key--black"></span>
-            <span class="key key--black"></span><span class="key key--black"></span>
-            <span class="key key--black"></span><span class="key key--black"></span>
-            <span class="key key--black"></span><span class="key key--black"></span>
-            <span class="key key--black"></span><span class="key key--black"></span>
-          </div>
-        </div>
+        <!-- The keybed is BUILT by ui/keyboard.js into this mount point: 49 real
+             <button> keys, C2 to C6, each with a visible label and an accessible
+             name. It cannot be markup here without keeping the key table in two
+             places, and a painted <span> would not be a control at all. The mount
+             point is empty until the module runs, and the noscript notice above
+             already says the instrument needs JavaScript. -->
+        <div data-keybed-mount></div>
       </section>
     </main>
 
@@ -101,5 +89,17 @@
          canvas. It self-initialises on import and reads only the parameter
          store, so it needs nothing from main.js. -->
     <script type="module" src="./ui/paint.js"></script>
+    <!-- The POWER-ON GATE, ui/power.js. Self-initialises on import, like ui/paint.js
+         above, and is loaded here rather than from ui/main.js because main.js is not
+         this task's file to edit. It is the ONLY thing in the instrument that calls
+         resumeInstrument(), and only from inside the POWER button's click handler:
+         until that gesture the context stays suspended and the page says so. -->
+    <script type="module" src="./ui/power.js"></script>
+    <!-- The INPUT, ui/keyboard.js: the on-screen keybed, the computer-key tracker
+         layout, the octave shift and latch. Self-initialises on import, the same
+         shape as ui/paint.js and ui/power.js. It owns the one held-note registry
+         and reaches audio/engine.js through a deferred import, so it never
+         constructs or resumes audio. -->
+    <script type="module" src="./ui/keyboard.js"></script>
   </body>
 </html>
