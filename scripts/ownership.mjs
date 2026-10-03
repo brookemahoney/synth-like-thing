@@ -21,7 +21,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { REPO_ROOT, inWeb } from './lib/modules.mjs';
+import { REPO_ROOT, inWeb, webModules, reachableModules } from './lib/modules.mjs';
 
 const STRIKETHROO = path.join(REPO_ROOT, '.ai', 'strikethroo');
 
@@ -127,6 +127,32 @@ const taskFile = (id) => {
 
 let hazards = 0;
 let unspecified = 0;
+let unwired = 0;
+
+// Which task, in the whole plan, owns the entry-point file? A phase whose tasks
+// each add a module nobody imports needs someone to add a <script> tag, and if
+// no task in the plan owns index.html then nobody is going to.
+const ALL_TASK_FILES = [];
+for (const group of ['plans', 'archive']) {
+  const groupDir = path.join(REPO_ROOT, '.ai', 'strikethroo', group);
+  if (!fs.existsSync(groupDir)) continue;
+  for (const planDir of fs.readdirSync(groupDir, { withFileTypes: true })) {
+    if (!planDir.isDirectory()) continue;
+    const tasksDir = path.join(groupDir, planDir.name, 'tasks');
+    if (!fs.existsSync(tasksDir)) continue;
+    for (const file of fs.readdirSync(tasksDir)) {
+      if (file.endsWith('.md')) ALL_TASK_FILES.push(path.join(tasksDir, file));
+    }
+  }
+}
+const ENTRY_OWNERS = [];
+for (const f of ALL_TASK_FILES) {
+  const source = fs.readFileSync(f, 'utf8');
+  if (!declaredOwnership(source).some((c) => c === 'web/index.html')) continue;
+  const id = source.match(/^id:\s*(\d+)$/m)?.[1];
+  const owner = phases.find((p) => p.tasks.includes(Number(id)));
+  ENTRY_OWNERS.push({ id: Number(id), phase: owner ? owner.number : null });
+}
 
 for (const phase of phases) {
   console.log(`\nPhase ${phase.number}: ${phase.title}`);
@@ -175,6 +201,34 @@ for (const phase of phases) {
     }
   }
 
+  // A task can own a brand-new module that nothing in the page imports. That
+  // module is on disk, in the repo, and absent from the delivered page — and if
+  // no task in this phase owns the entry-point file, there is nobody whose job
+  // it is to add the <script> tag. This is the collision check's blind spot:
+  // nothing conflicts, because the file that is missing is one no task in the
+  // phase ever claimed.
+  const reachable = reachableModules();
+  const onDisk = new Set(webModules());
+  for (const task of perTask) {
+    for (const claim of task.claims) {
+      const target = claim.replace(/\/?\*+$/, '');
+      if (claim.includes('*') || !inWeb(target) || !onDisk.has(target)) continue;
+      if (reachable.has(target)) continue;
+      console.log(`  UNWIRED     ${target}  (task ${String(task.id).padStart(3, '0')} owns it, but no entry point imports it)`);
+      console.log('              the page will not load it, and check-invariants will fail on it');
+      const inPhase = ENTRY_OWNERS.filter((o) => o.phase === phase.number);
+      if (inPhase.length === 0) {
+        const where = ENTRY_OWNERS.length === 0
+          ? 'NO task in this plan owns web/index.html'
+          : `web/index.html is owned by task ${ENTRY_OWNERS.map((o) => o.id).join(', ')}, in phase${ENTRY_OWNERS.length === 1 ? '' : 's'} ${ENTRY_OWNERS.map((o) => o.phase).join(', ')}`;
+        console.log(`              ${where}, and not by phase ${phase.number}`);
+        console.log('              -> give one task in THIS phase web/index.html in owns:, or the <script> tag will not be added');
+      }
+      hazards += 1;
+      unwired += 1;
+    }
+  }
+
   if (perTask.length === 1) continue;
 
   // A task that both protects a path and claims it is self-contradictory.
@@ -197,10 +251,11 @@ for (const phase of phases) {
 
 console.log('');
 if (hazards === 0 && unspecified === 0) {
-  console.log('ownership: every parallel phase has a single owner per file');
+  console.log('ownership: every parallel phase has a single owner per file, and every owned module is wired');
   process.exit(0);
 }
 console.error(
-  `ownership: ${hazards} collision(s), ${unspecified} task(s) without an authoritative owns: list — partition before dispatching`,
+  `ownership: ${hazards} blocking issue(s), ${unspecified} task(s) without an authoritative owns: list` +
+    `${unwired ? `, ${unwired} owned module(s) not reachable from the page` : ''} — partition before dispatching`,
 );
 process.exit(1);

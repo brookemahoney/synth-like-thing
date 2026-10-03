@@ -84,6 +84,20 @@
       </section>
     </main>
 
+    <!-- THE FIRST SCRIPT ON THE PAGE, and the order is load-bearing: this module
+         installs the `error` / `unhandledrejection` capture at module scope, so it is
+         the earliest listener in the document and a throw inside any module evaluated
+         after it is still recorded. It also publishes the read-only runtime inspection
+         handle on `window.__instrument` synchronously, and starts the level meter —
+         which publishes the measured level to the store key ui/paint.js documents, so
+         the dab canvas below and the meter's own stroke agree on one number read from
+         one authority. It imports no audio module at import time: the graph is resolved
+         from dynamic imports inside startMeter(), in the browser. -->
+    <script type="module" src="./ui/meter.js"></script>
+    <!-- The preset panel: twelve slots plus JSON import/export. Self-initialises on
+         import, like ui/paint.js and ui/keyboard.js, and statically imports
+         audio/presets.js — so this one tag puts the preset data layer in the graph. -->
+    <script type="module" src="./ui/preset-view.js"></script>
     <script type="module" src="./ui/main.js"></script>
     <!-- The painted layer: the generated ground texture and the reactive dab
          canvas. It self-initialises on import and reads only the parameter
