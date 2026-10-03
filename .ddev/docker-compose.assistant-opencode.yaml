@@ -1,0 +1,14 @@
+#ddev-generated
+# Mount OpenCode host configuration into the web container so that `opencode`
+# inside the container shares the same global config, settings, and cache
+# as the host user's OpenCode installation.
+# The pre-start hook in config.assistant-opencode.yaml ensures all host paths exist
+# as the correct type (file vs directory) before Docker attempts to bind-mount them.
+# Without that hook, Docker would create a directory at any missing file path,
+# silently breaking the mount instead of raising an error.
+services:
+  web:
+    volumes:
+      - "${HOME}/.config/opencode:${HOME}/.config/opencode:cached"
+      - "${HOME}/.cache/opencode:${HOME}/.cache/opencode:cached"
+      - "${HOME}/.local/share/opencode:${HOME}/.local/share/opencode:cached"

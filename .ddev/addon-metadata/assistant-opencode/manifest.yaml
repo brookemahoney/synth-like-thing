@@ -1,0 +1,10 @@
+name: assistant-opencode
+repository: e0ipso/ddev-assistant-opencode
+version: v1.1.0
+install_date: "2026-10-02T20:38:14-07:00"
+project_files:
+    - web-build/Dockerfile.assistant-opencode
+    - config.assistant-opencode.yaml
+    - docker-compose.assistant-opencode.yaml
+global_files: []
+removal_actions: []

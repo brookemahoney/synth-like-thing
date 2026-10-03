@@ -1,0 +1,8 @@
+#ddev-generated
+# Expose T3 from the web container through stable project-specific DDEV ports.
+nodejs_version: "22"
+web_extra_exposed_ports:
+  - name: assistant-t3
+    container_port: 3773
+    http_port: 27350
+    https_port: 27351

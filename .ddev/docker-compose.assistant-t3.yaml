@@ -1,0 +1,9 @@
+#ddev-generated
+# Publishes the T3 container port straight on the host, bypassing ddev-router.
+# ddev-router only answers requests whose Host header matches a project hostname
+# and, unless router_bind_all_interfaces is enabled globally, only listens on
+# localhost. Neither holds for clients arriving over Tailscale or the LAN.
+services:
+  web:
+    ports:
+      - "127.0.0.1:17350:3773"

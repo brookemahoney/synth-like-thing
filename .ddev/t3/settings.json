@@ -1,0 +1,69 @@
+{
+  "enableAssistantStreaming": false,
+  "enableProviderUpdateChecks": true,
+  "automaticGitFetchInterval": 30000,
+  "defaultThreadEnvMode": "local",
+  "newWorktreesStartFromOrigin": false,
+  "addProjectBaseDirectory": "",
+  "defaultModelSelection": {
+    "instanceId": "opencode",
+    "model": "openrouter/stealth/space-bunny-alpha",
+    "options": [
+      {
+        "id": "variant",
+        "value": "max"
+      },
+      {
+        "id": "agent",
+        "value": "plan-creator"
+      }
+    ]
+  },
+  "textGenerationModelSelection": {
+    "instanceId": "opencode",
+    "model": "openrouter/stealth/space-bunny-alpha",
+    "options": [
+      {
+        "id": "variant",
+        "value": "medium"
+      },
+      {
+        "id": "agent",
+        "value": "build"
+      }
+    ]
+  },
+  "observability": {
+    "otlpTracesUrl": "",
+    "otlpMetricsUrl": ""
+  },
+  "providers": {
+    "codex": {
+      "enabled": false,
+      "binaryPath": "codex",
+      "homePath": "",
+      "shadowHomePath": ""
+    },
+    "claudeAgent": {
+      "enabled": false,
+      "binaryPath": "claude",
+      "homePath": "",
+      "launchArgs": ""
+    },
+    "cursor": {
+      "enabled": false,
+      "binaryPath": "agent",
+      "apiEndpoint": ""
+    },
+    "grok": {
+      "enabled": false,
+      "binaryPath": "grok"
+    },
+    "opencode": {
+      "enabled": true,
+      "binaryPath": "opencode",
+      "serverUrl": "",
+      "serverPassword": ""
+    }
+  }
+}

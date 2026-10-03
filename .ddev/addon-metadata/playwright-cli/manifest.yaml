@@ -1,0 +1,11 @@
+name: playwright-cli
+repository: e0ipso/ddev-playwright-cli
+version: v1.2.3
+install_date: "2026-10-02T20:38:10-07:00"
+project_files:
+    - config.playwright-cli.yaml
+    - web-build/Dockerfile.playwright-cli
+    - playwright-cli/cli.config.json
+global_files: []
+removal_actions:
+    - if grep "#ddev-generated" web-build/Dockerfile.playwright-cli 2>/dev/null; then rm web-build/Dockerfile.playwright-cli; fi

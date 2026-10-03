@@ -1,0 +1,7 @@
+#ddev-generated
+hooks:
+  post-start:
+    # Install Claude Code skills for Playwright CLI if available.
+    - exec: "which playwright-cli > /dev/null 2>&1 && playwright-cli install --skills || true"
+web_environment:
+  - PLAYWRIGHT_MCP_CONFIG=/var/www/html/.ddev/playwright-cli/cli.config.json

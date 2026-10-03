@@ -1,0 +1,65 @@
+#ddev-generated
+# Debian images by default disable apt caching, so turn it on until we finish
+# the build.
+RUN mv /etc/apt/apt.conf.d/docker-clean /etc/apt/docker-clean-disabled
+
+RUN apt-get update
+
+# Install @playwright/cli globally as root, then install its Chromium browser.
+# The global npm install runs as root because the global node_modules prefix
+# isn't user-writable in every webserver image: ddev-webserver 1.25.3 moved
+# Node to the `n` manager under a root-owned /usr/local/n, so
+# `sudo -u $username npm i -g` fails with EACCES (1.25.2's /usr/local prefix
+# was world-writable). Running as root works on both, and avoids chowning the
+# prefix's lib/ and bin/ (npm also symlinks the CLI into bin/). Only the
+# browser download runs as the ddev user, so it writes to ~/.cache/ms-playwright/.
+# install-deps (needs root for apt-get internally) runs as root anyway.
+#
+# @playwright/cli pins its own playwright-core version, so its browser
+# requirements are independent of whatever @playwright/test version the
+# project uses.
+#
+# 1. $username doesn't work in --mount... lines as it's a shell variable set by
+#    ddev. Instead, we mount the .cache cache into /ms-playwright-cache, and
+#    symlink it in.
+# 2. We merge any existing ~/.cache content into /ms-playwright-cache first
+#    (cp -an preserves existing files, so cached browsers are not overwritten).
+#    The trailing ; (not &&) ensures rm -rf runs even if ~/.cache is empty.
+# 3. PLAYWRIGHT_SKIP_BROWSER_GC=1 prevents `playwright install` from removing
+#    browsers installed by a different playwright-core version (e.g. the
+#    project-level @playwright/test from ddev-playwright). Without this,
+#    playwright's built-in GC deletes any browsers not referenced by the
+#    current package.
+#    See https://github.com/microsoft/playwright/blob/7f55e117ce4d/packages/playwright-core/src/server/registry/index.ts#L1080-L1081
+# 4. Then we remove the symlink, and copy the cache directory into ~/.cache so
+#    it is persisted in the image.
+# 5. We rm -rf ~/.cache before symlinking because ddev-playwright's Dockerfile
+#    may have already created it as a real directory. The /ms-playwright-cache
+#    mount retains its browsers regardless, so the final cp -a recovers
+#    everything.
+#
+# See https://github.com/ddev/ddev/issues/4727.
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+  --mount=type=cache,target=/var/lib/apt,sharing=locked \
+  --mount=type=cache,target=/ms-playwright-cache,sharing=locked \
+  chown -R $username:$username /ms-playwright-cache \
+  && cp -an /home/$username/.cache/* /ms-playwright-cache/ 2>/dev/null; \
+  rm -rf /home/$username/.cache \
+  && sudo -u $username ln -s /ms-playwright-cache /home/$username/.cache \
+  && npm install -g @playwright/cli@latest \
+  && PW_BIN="$(npm root -g)/@playwright/cli/node_modules/.bin/playwright" \
+  && "$PW_BIN" install-deps chromium \
+  && sudo -u $username PLAYWRIGHT_SKIP_BROWSER_GC=1 "$PW_BIN" install chromium \
+  && rm /home/$username/.cache \
+  && sudo -u $username mkdir -p /home/$username/.cache \
+  && sudo -u $username cp -a /ms-playwright-cache/* /home/$username/.cache/
+
+# Add N_PREFIX/bin to PATH for ddev exec.
+# ddev exec uses non-login bash (BASH_ENV=/etc/bash.nointeractive.bashrc),
+# which sources /etc/bashrc/*.bashrc — not /etc/profile.d/.
+RUN mkdir -p /etc/bashrc && \
+    printf '[ -n "${N_PREFIX}" ] && export PATH="${N_PREFIX}/bin:${PATH}"\n' \
+    > /etc/bashrc/playwright-cli.bashrc
+
+# We're done with apt so disable caching again for the final image.
+RUN mv /etc/apt/docker-clean-disabled /etc/apt/apt.conf.d/docker-clean

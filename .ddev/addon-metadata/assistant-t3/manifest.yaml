@@ -1,0 +1,8 @@
+name: assistant-t3
+repository: e0ipso/ddev-assistant-t3
+version: v1.1.0
+install_date: "2026-10-02T20:38:18-07:00"
+project_files:
+    - commands/web/t3
+global_files: []
+removal_actions: []

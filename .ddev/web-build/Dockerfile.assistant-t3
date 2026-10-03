@@ -1,0 +1,13 @@
+#ddev-generated
+RUN set -eux; \
+    export DEBIAN_FRONTEND=noninteractive; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends g++ make python3; \
+    rm -rf /var/lib/apt/lists/*; \
+    if ! command -v npm >/dev/null 2>&1; then \
+      echo "assistant-t3: npm is required to install T3 in the web container" >&2; \
+      exit 1; \
+    fi; \
+    npm install --global "t3@latest"; \
+    command -v t3 >/dev/null; \
+    t3 --version
