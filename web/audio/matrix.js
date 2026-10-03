@@ -145,17 +145,14 @@
  *   envelope, because that is what env.js's `setPeak` is for, and this module is not
  *   going to second-guess a modulation move. The change is that zero now means zero.
  *
- * A FORBIDDEN SECOND WRITER: engine.js's setCoreModulation
- *   `engine.js` exports `setCoreModulation(core, cents, …)`, which applies ONE value
- *   across the whole pool instead of summing each voice's own routes, and whose module
- *   header says "task 7 calls this". Task 7 does not, and must not: the pitch route is
- *   a PER-VOICE SUM, and a single value applied across the pool would both discard that
- *   sum and create a second writer on `pitchSource.offset` — the exact failure this
- *   file's one-write-site rule exists to prevent. It has ZERO callers today, which is
- *   the only reason it is still safe. It is a FORBIDDEN SECOND WRITER for the `pitch`
- *   destination: route through the voice's own `modulationPoints` door and nothing
- *   else. (engine.js is another task's file and is not edited here; the export needs
- *   one line of attention from whoever owns it.)
+ * WHY THERE IS NO POOL-WRIDE PITCH WRITER
+ *   `engine.js` used to export `setCoreModulation(core, cents, …)`, which applied ONE
+ *   value across the whole pool. It had zero callers, and that was the only reason it
+ *   was safe: the pitch route is a PER-VOICE SUM, so a pool-wide writer would both
+ *   discard each voice's own sum and create a second writer on `pitchSource.offset` —
+ *   the exact failure this file's one-write-site rule exists to prevent. Its header
+ *   also said "task 7 calls this", which invited precisely that second writer. It has
+ *   been removed. The ONLY route to `pitch` is the per-voice door below.
  *
  * THE MASTER-STAGE RECONCILIATION: THE MEAN
  *   `delayTime` and `reverbSend` are one node each, so they cannot be written per

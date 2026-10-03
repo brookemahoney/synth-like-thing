@@ -23,7 +23,6 @@
  *   heldNotes()            the notes currently HELD, in the order they were pressed
  *   noteHeld(note)         is that note held?
  *   clearHeldNotes()       empty the registry (panic, latch off)
- *   setCoreModulation()    the modulation-matrix contribution, per core
  *   waveLevel() / setWaveLevelBias() / waveLevels()
  *                          the wavesampler's level: readable, and a modulation point
  *   voiceEngine            the handle: allocator, voices, live states, stats
@@ -194,7 +193,6 @@ const voiceEngine = {
   noteOn,
   noteOff,
   allNotesOff,
-  setCoreModulation,
 };
 
 /* ------------------------------------------------------------- the note path --- */
@@ -274,20 +272,17 @@ export function allNotesOff({ at } = {}) {
   stopAllWaveVoices({ at: when, fade: WAVE_RELEASE_FADE_SECONDS });
 }
 
-/**
- * The modulation-matrix contribution for one core, in cents. Task 7 sums its
- * routes once per voice per block and calls this; nothing else writes to it.
- */
-export function setCoreModulation(core, cents, { voiceIndex, at } = {}) {
-  let touched = 0;
-  for (const voice of allocator.voices) {
-    if (voiceIndex !== undefined && voice.index !== voiceIndex) continue;
-    if (!voice.cores) continue;
-    voice.setCoreModulation(core, cents, { at, ramp: true, seconds: RAMP_SECONDS });
-    touched += 1;
-  }
-  return touched;
-}
+/* -------------------------------------------------------------------------------------
+ * There is deliberately NO pool-wide pitch writer here.
+ *
+ * An earlier version exported `setCoreModulation(core, cents)`, which applied one
+ * value to every voice in the pool. Nothing called it -- and that was the point:
+ * the modulation matrix sums its 64 routes ONCE PER VOICE, so a pool-wide writer
+ * cannot express it. Leaving the export in place was a trap: its header said
+ * "task 7 calls this", and a future caller would have created a second writer for
+ * the one destination that must have exactly one. The per-voice route is
+ * `voice.modulationPoints().pitch`, reached through `voice.apply()`.
+ * ----------------------------------------------------------------------------------- */
 
 /* ---------------------------------------------- the wavesampler level, exposed --- */
 
