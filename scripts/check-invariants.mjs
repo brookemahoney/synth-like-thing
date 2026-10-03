@@ -179,6 +179,62 @@ function checkNoAudioWorklet() {
   if (offenders.length > 0) fail('no-audioworklet', `AudioWorklet referenced in ${offenders.join(', ')}: out of scope, native nodes only`);
 }
 
+/* ------------------------------------------------------------------ *
+ * 6. A report, never a gate: exports nothing but comments refer to
+ * ------------------------------------------------------------------ */
+
+/**
+ * An export whose only mentions anywhere else in the repository are inside
+ * comments is either dead weight or public API nothing in-repo calls. Both are
+ * worth a human's five seconds; neither is a build failure, because a
+ * self-initialising module legitimately exports its lifecycle entry points for
+ * an outside caller.
+ *
+ * This exists because it found one: masterBus had become a unity-gain
+ * pass-through once task 8 moved `global.volume` downstream, so nothing wrote
+ * its gain any more — and whether to remove it is a judgement about a
+ * deliberate architectural seam, which is precisely not this script's call.
+ */
+function reportCommentOnlyExports() {
+  const sources = new Map();
+  const collect = (dir) => {
+    if (!fs.existsSync(dir)) return;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) collect(full);
+      else if (/\.(js|mjs)$/.test(entry.name)) sources.set(full, fs.readFileSync(full, 'utf8'));
+    }
+  };
+  collect(WEB_ROOT);
+  collect(path.join(REPO_ROOT, 'tests'));
+
+  // Count a name once in code and once in the full text, so "mentioned only in a
+  // comment" means the code count is zero while the raw count is not.
+  const stripComments = (text) => text.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^\s*\/\/.*$/gm, ' ');
+  const corpus = [...sources].map(([file, raw]) => ({ file, raw, code: stripComments(raw) }));
+
+  const flagged = [];
+  for (const [file, raw] of sources) {
+    if (!file.startsWith(WEB_ROOT)) continue;
+    for (const match of raw.matchAll(/^export\s+(?:async\s+)?(?:function|const|class)\s+([A-Za-z_$][\w$]*)/gm)) {
+      const name = match[1];
+      const word = new RegExp(`\\b${name}\\b`, 'g');
+      let inCode = 0;
+      let inText = 0;
+      for (const entry of corpus) {
+        if (entry.file === file) continue;
+        inCode += (entry.code.match(word) ?? []).length;
+        inText += (entry.raw.match(word) ?? []).length;
+      }
+      if (inCode === 0 && inText > 0) flagged.push(`${path.relative(REPO_ROOT, file)} :: ${name} (${inText} comment mention${inText === 1 ? '' : 's'})`);
+    }
+  }
+  if (flagged.length > 0) {
+    note(`exported but only ever named in comments — dead weight or out-of-repo API, your call:`);
+    for (const line of flagged) note(`    ${line}`);
+  }
+}
+
 /* ------------------------------------------------------------------ */
 
 checkTaskFrontmatter();
@@ -188,6 +244,7 @@ checkNoThirdParty();
 checkNoBinaryMedia();
 checkWebIsDependencyFree();
 checkNoAudioWorklet();
+reportCommentOnlyExports();
 
 for (const line of notes) console.log(`  note  ${line}`);
 if (failures.length === 0) {

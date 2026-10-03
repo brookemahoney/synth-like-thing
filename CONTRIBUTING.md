@@ -7,14 +7,20 @@ tree, or a pointer to the command that enforces something.
 
 | Command | What it covers |
 |---|---|
-| `npm test` | The test suite: `node --test tests/*.test.mjs` |
+| `npm test` | The test suite. Runs with `--test-reporter=dot`, so a green run is ~30 lines and a failure still prints its assertion, stack and diff. |
 | `npm run check` | Invariants + parallel-dispatch ownership + tests. This is what CI runs. |
 | `npm run hooks:install` | Installs the pre-commit guardrail into `.git/hooks/` |
 | `node scripts/verify.mjs armed` | Cold-starts the page and proves every module on disk is actually loaded by it |
 | `node scripts/verify.mjs rms <probe>` | Runs a probe against a freshly armed page |
+| `node scripts/verify.mjs rms <probe> --size 390x844` | The same, at a viewport you choose |
 
 `node --test tests/` does **not** work here — a directory argument is not
 resolved. Always pass the glob. Node here is 22, not 24.
+
+To run at a viewport, pass `--size`. `playwright-cli open` resets the window, so a
+`resize` issued beforehand is **discarded silently** and a narrow-viewport check
+quietly measures 1280px. `verify.mjs` prints the viewport and `scrollWidth` it
+actually got, so a wrong one is visible rather than assumed.
 
 ## The docroot
 
@@ -81,7 +87,9 @@ rather than calling `resumeInstrument()` programmatically, and refuses to probe 
 page that has not loaded everything on disk.
 
 A probe is a single arrow-function expression receiving `h`; see
-`probes/example.mjs`. `h` provides `params`, `get`, `sample`, `hold`, `release`,
+`probes/example.mjs`. It is compiled in node before a browser is launched, so a
+syntax error is reported as a syntax error rather than arriving as a `SyntaxError`
+buried in the middle of Playwright's echoed source. `h` provides `params`, `get`, `sample`, `hold`, `release`,
 `transport`, `live`, `silence`, and the raw `rms`/`peak`/`band` readers.
 
 ## Parallel task dispatch

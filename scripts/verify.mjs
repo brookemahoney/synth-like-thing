@@ -115,8 +115,16 @@ async function commandKeys(pattern) {
  * armed — a cold page, and proof that the page loaded what is on disk
  * ------------------------------------------------------------------ */
 
-async function arm(session) {
+async function arm(session, viewport) {
   cli(['-s', session, 'open', SITE]);
+  // `open` resets the window to playwright-cli's default, so a viewport has to be
+  // applied AFTER it or it is silently discarded — which is how a narrow-viewport
+  // check ends up measuring 1280px and reporting a false pass.
+  if (viewport) {
+    const [width, height] = viewport.split('x').map(Number);
+    if (!Number.isFinite(width) || !Number.isFinite(height)) throw new Error(`--size wants WIDTHxHEIGHT, got "${viewport}"`);
+    cli(['-s', session, 'resize', String(width), String(height)]);
+  }
   // A real click, never a programmatic resume: a programmatic resume can succeed
   // without a user gesture and would hide a broken power-on gate.
   cli(['-s', session, 'click', POWER_SELECTOR]);
@@ -130,6 +138,8 @@ async function arm(session) {
         contextState: ctx.contextState(),
         audioTime: Number(ctx.contextTime().toFixed(4)),
         sampleRate: ctx.sampleRate,
+        viewport: { width: window.innerWidth, height: window.innerHeight },
+        scrollWidth: document.documentElement.scrollWidth,
         loadedModules: modules,
       };
     });
@@ -138,7 +148,8 @@ async function arm(session) {
 }
 
 function reportArmed(session, armed) {
-  console.log(`session ${session}  context=${armed.contextState}  audioTime=${armed.audioTime}  sampleRate=${armed.sampleRate}`);
+  const vp = armed.viewport ? `  viewport=${armed.viewport.width}x${armed.viewport.height} scrollWidth=${armed.scrollWidth}` : '';
+  console.log(`session ${session}  context=${armed.contextState}  audioTime=${armed.audioTime}  sampleRate=${armed.sampleRate}${vp}`);
   // The check that would have caught a whole task's worth of dead code: a module
   // on disk that the page never requested is not in the shipped graph, however
   // many probes passed by importing it by hand.
@@ -168,17 +179,28 @@ function reportArmed(session, armed) {
  */
 function probeSource(file) {
   // Strip leading line comments so a probe can document itself.
-  const text = fs.readFileSync(file, 'utf8').replace(/^(?:\s*\/\/[^\n]*\n)+/, '').trim();
-  if (!/^(async\s*)?(\(|function\b)/.test(text)) {
+  const source = fs.readFileSync(file, 'utf8').replace(/^(?:\s*\/\/[^\n]*\n)+/, '').trim();
+  if (!/^(async\s*)?(\(|function\b)/.test(source)) {
     throw new Error(`${file} must be a single arrow-function expression receiving h, e.g. "async (h) => ({...})"`);
   }
-  return text;
+  // Compile it here, in node, before a browser is launched. A probe is a bare
+  // expression rather than a module, so `node --check` cannot read it — but the
+  // same syntax errors reach the page as a SyntaxError buried in the middle of
+  // playwright-cli's echoed function source, which is a miserable way to learn
+  // that you wrote `cutoffs.vel_0.3`.
+  try {
+    // eslint-disable-next-line no-new-func
+    new Function('h', `return (${source});`);
+  } catch (error) {
+    throw new Error(`${file} is not valid JavaScript: ${error.message}`);
+  }
+  return source;
 }
 
-async function commandRms(session, probeFile) {
+async function commandRms(session, probeFile, viewport) {
   if (!probeFile) throw new Error('usage: node scripts/verify.mjs rms [session] <probe.mjs>');
   const source = probeSource(probeFile);
-  const armed = await arm(session);
+  const armed = await arm(session, viewport);
   reportArmed(session, armed);
   if (process.exitCode === 1) {
     console.error('refusing to probe a page that is not fully loaded');
@@ -322,20 +344,29 @@ async function commandRms(session, probeFile) {
 
 /* ------------------------------------------------------------------ */
 
-const [command, ...rest] = process.argv.slice(2);
+const argv = process.argv.slice(2);
+const sizeIndex = argv.indexOf('--size');
+const viewport = sizeIndex === -1 ? null : argv[sizeIndex + 1];
+if (sizeIndex !== -1) argv.splice(sizeIndex, 2);
+const [command, ...rest] = argv;
 
 try {
   if (command === 'keys') await commandKeys(rest[0]);
   else if (command === 'armed') {
     const session = rest[0] ?? 'verify';
-    reportArmed(session, await arm(session));
+    reportArmed(session, await arm(session, viewport));
     cli(['-s', session, 'close'], { allowFailure: true });
-  } else if (command === 'rms') await commandRms(rest[0] ?? 'verify', rest[1]);
+  } else if (command === 'rms') await commandRms(rest[0] ?? 'verify', rest[1], viewport);
   else {
     console.log(`usage:
   node scripts/verify.mjs keys [pattern]          schema lookup: names, ranges, units
   node scripts/verify.mjs armed [session]         cold-start the page, prove every module loaded
   node scripts/verify.mjs rms [session] <probe>   run a probe expression against a fresh page
+
+options:
+  --size WIDTHxHEIGHT   viewport for the run, applied AFTER the browser opens,
+                        because "open" resets the window and discards a resize
+                        issued beforehand. The only reliable way to run narrow.
 
 probe files are a single expression receiving h:
   async (h) => { h.params({ 'filter1.resonance': 30 }); await h.hold(57); return h.sample(40); }

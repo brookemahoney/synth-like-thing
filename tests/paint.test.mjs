@@ -367,8 +367,31 @@ test('every region carries a section hue, and the playhead accent is its own tok
   );
 });
 
-test('the responsive breakpoint is the agreed 900px and the layout cannot overflow', () => {
+/*
+ * This asserts the stylesheet DECLARES the narrow-viewport rules. It does not
+ * assert the layout does not overflow, and must not claim to: it reads source,
+ * so it cannot see a rendered result. It passed straight through a regression
+ * where the page scrolled 218px sideways at 390px, because the keybed had no
+ * bounded scroll container — a fact no amount of grepping the CSS reveals.
+ *
+ * The rendered guarantee lives in tests/responsive.test.mjs, which drives a real
+ * browser at 390px and 1600px. This test's job is narrower: keep the rules this
+ * file owns honest about what they are.
+ */
+test('the narrow-viewport rules this stylesheet owns are declared', () => {
   const paintCss = readFileSync(new URL('../web/styles/paint.css', import.meta.url), 'utf8');
-  assert.match(paintCss, /@media\s*\(max-width:\s*56\.25rem\)/, 'the stack breakpoint is 900px');
-  assert.match(paintCss, /min-width:\s*0/, 'panels are allowed to shrink, so nothing overflows');
+  const narrow = paintCss.match(/@media\s*\(max-width:\s*56\.25rem\)\s*\{([\s\S]*?)\n\}/);
+  assert.ok(narrow, 'the stack breakpoint is declared at 900px');
+  assert.match(paintCss, /min-width:\s*0/, 'panels are allowed to shrink rather than force a min width');
+
+  // The two rules whose absence caused the real regression: without a bounded
+  // scroller the keybed's intrinsic width propagates up to the document.
+  assert.match(narrow[1], /\.keybed-wrap\b[^{]*\{[^}]*overflow-x:\s*auto/, 'the keybed is bounded by a scroller at narrow widths');
+  assert.match(narrow[1], /\.keybed\b[^{]*\{[^}]*width:\s*max-content/, 'the bed is content-width so the wrapper is what is bounded');
+});
+
+test('the rendered narrow-viewport guarantee is covered by a browser test, not by this one', () => {
+  const responsive = readFileSync(new URL('./responsive.test.mjs', import.meta.url), 'utf8');
+  assert.match(responsive, /scrollWidth/, 'a rendered test measures scrollWidth rather than grepping the stylesheet');
+  assert.match(responsive, /390/, 'and it does so at the narrow width that regressed');
 });
