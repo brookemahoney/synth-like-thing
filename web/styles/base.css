@@ -6,6 +6,16 @@
    colour, so the impressionist repaint in task 002 is a change to this file and
    to the rules that read these properties, not a change to every control.
 
+   This file holds the TOKENS and the structural reset only. The painted layer
+   itself — ground, washes, impasto, section hues, typography, the responsive
+   stack — lives in paint.css, which is loaded after this one.
+
+   Every hue is declared twice: once as a hex, for anything that needs a literal
+   colour (canvas, contrast maths), and once as three channels, so a wash can be
+   a translucent version of a palette entry without a second hex to keep in sync:
+       --sky: #9ec0cc;   --sky-rgb: 158 192 204;
+   then   rgb(var(--sky-rgb) / 0.28).
+
    System font stacks only: no webfont, no network request.
    ========================================================================== */
 
@@ -13,15 +23,28 @@
   /* --- the palette ------------------------------------------------------- */
   --ground: #f2ead8; /* parchment */
   --ground-deep: #e7dcc4; /* the shaded edge of the sheet */
+  --ground-lit: #f8f2e2; /* where the light falls on the sheet */
   --ink: #2b2722; /* charcoal */
   --ink-soft: #6b6153; /* charcoal, thinned */
-  --ink-faint: #9a8f7c;
+  --ink-faint: #6f6553; /* charcoal, thinned twice — still clears AA on the ground */
 
   --sage: #8ba183;
   --sky: #9ec0cc; /* atrium sky */
   --rose: #c08a86; /* rose madder */
   --ochre: #d0a552;
   --lavender: #b0a3c2;
+
+  --ground-rgb: 242 234 216;
+  --ground-deep-rgb: 231 220 196;
+  --ground-lit-rgb: 248 242 226;
+  --ink-rgb: 43 39 34;
+  --ink-soft-rgb: 107 97 83;
+  --ink-faint-rgb: 111 101 83;
+  --sage-rgb: 139 161 131;
+  --sky-rgb: 158 192 204;
+  --rose-rgb: 192 138 134;
+  --ochre-rgb: 208 165 82;
+  --lavender-rgb: 176 163 194;
 
   /* Deep variants, for a control that sits on its own hue. */
   --sage-deep: #5c6b55;
@@ -30,9 +53,18 @@
   --ochre-deep: #8f6a1f;
   --lavender-deep: #6b5f7c;
 
+  --sage-deep-rgb: 92 107 85;
+  --sky-deep-rgb: 93 134 149;
+  --rose-deep-rgb: 142 92 88;
+  --ochre-deep-rgb: 143 106 31;
+  --lavender-deep-rgb: 107 95 124;
+
   --panel: #f7f1e2;
   --panel-edge: #d8ccb0;
   --panel-shade: #ece2cb;
+  --panel-rgb: 247 241 226;
+  --panel-edge-rgb: 216 204 176;
+  --panel-shade-rgb: 236 226 203;
   --focus: var(--ink);
 
   /* --- layout metrics ---------------------------------------------------- */
@@ -43,17 +75,24 @@
   --panel-pad: 0.7rem;
   --region-pad: 0.9rem;
   --hairline: 1px;
-  --knob: 3.1rem;
+  --knob: 3.35rem;
   --knob-sm: 2.4rem;
   --fader-long: 5.5rem;
   --fader-short: 3.2rem;
   --fader-thick: 1.5rem;
   --key-w: 2.6rem;
   --key-h: 7rem;
+  --key-ivory: #fbf7ec;
+  --key-deep: #3a2f2c;
 
   /* --- type -------------------------------------------------------------- */
+  /* Legends are a serif display face: the painterly signature. Readouts and
+     everything else is a system sans. Both are local font stacks — the site
+     must work with the network offline, so there is no webfont anywhere. */
+  --font-legend: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua",
+    "Hoefler Text", Georgia, "Times New Roman", serif;
   --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-readout: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --font-readout: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --fs-micro: 0.6875rem;
   --fs-small: 0.8125rem;
   --fs-body: 0.9375rem;
@@ -62,12 +101,39 @@
 }
 
 /* Each control resolves its own hue through one property, so the skin in
-   controls.css is written once. */
-[data-hue="sage"] { --hue: var(--sage); --hue-deep: var(--sage-deep); }
-[data-hue="sky"] { --hue: var(--sky); --hue-deep: var(--sky-deep); }
-[data-hue="rose"] { --hue: var(--rose); --hue-deep: var(--rose-deep); }
-[data-hue="ochre"] { --hue: var(--ochre); --hue-deep: var(--ochre-deep); }
-[data-hue="lavender"] { --hue: var(--lavender); --hue-deep: var(--lavender-deep); }
+   controls.css is written once. The channel forms are here because
+   `rgb(var(--hue) / 0.4)` is invalid — a hex cannot be re-wrapped in rgb() — and
+   a translucent wash of a hue is needed constantly. */
+[data-hue="sage"] {
+  --hue: var(--sage);
+  --hue-deep: var(--sage-deep);
+  --hue-rgb: var(--sage-rgb);
+  --hue-deep-rgb: var(--sage-deep-rgb);
+}
+[data-hue="sky"] {
+  --hue: var(--sky);
+  --hue-deep: var(--sky-deep);
+  --hue-rgb: var(--sky-rgb);
+  --hue-deep-rgb: var(--sky-deep-rgb);
+}
+[data-hue="rose"] {
+  --hue: var(--rose);
+  --hue-deep: var(--rose-deep);
+  --hue-rgb: var(--rose-rgb);
+  --hue-deep-rgb: var(--rose-deep-rgb);
+}
+[data-hue="ochre"] {
+  --hue: var(--ochre);
+  --hue-deep: var(--ochre-deep);
+  --hue-rgb: var(--ochre-rgb);
+  --hue-deep-rgb: var(--ochre-deep-rgb);
+}
+[data-hue="lavender"] {
+  --hue: var(--lavender);
+  --hue-deep: var(--lavender-deep);
+  --hue-rgb: var(--lavender-rgb);
+  --hue-deep-rgb: var(--lavender-deep-rgb);
+}
 
 /* --- reset ---------------------------------------------------------------- */
 
@@ -248,16 +314,18 @@ p {
 
 /* --- empty grids, laid out for the module that will fill them ------------- */
 
+/* minmax(0, 1fr) rather than a floor: the eight columns have to fit inside the
+   panel at a phone width, otherwise the grid overflows the page. */
 .headgrid {
   display: grid;
-  grid-template-columns: 4.25rem repeat(8, minmax(2.4rem, 1fr));
+  grid-template-columns: minmax(0, 4.25rem) repeat(8, minmax(0, 1fr));
   gap: 2px;
-  overflow-x: auto;
 }
 
 .headgrid__corner,
 .headgrid__cell {
   min-height: 1.5rem;
+  min-width: 0;
   background: var(--panel-shade);
   border-radius: 2px;
 }
@@ -266,6 +334,7 @@ p {
   font-size: 0.625rem;
   color: var(--ink-soft);
   text-align: center;
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -328,9 +397,11 @@ p {
   width: 62%;
   height: 100%;
   justify-self: center;
-  background: var(--ink);
+  /* A painted key, not a machined one: warm charcoal with a rose wash over it,
+     so the keybed is the darkest thing on the sheet and still part of the paint. */
+  background: linear-gradient(rgb(var(--rose-rgb) / 0.62), var(--key-deep) 72%);
   border-radius: 0 0 3px 3px;
-  opacity: 0.86;
+  box-shadow: 0 1px 2px rgb(var(--ink-rgb) / 0.3);
 }
 
 .key--black:nth-child(1) { grid-column: 1; }
@@ -345,25 +416,14 @@ p {
 .key--black:nth-child(10) { grid-column: 13; }
 
 .key--white {
-  flex: 1;
-  background: #fbf7ec;
+  flex: 1 1 0;
+  min-width: 0;
+  background: var(--key-ivory);
   border: var(--hairline) solid var(--panel-edge);
   border-radius: 0 0 3px 3px;
 }
 
-/* --- narrow viewports ---------------------------------------------------- */
-
-@media (max-width: 60rem) {
-  .region__panels,
-  .panel__grid {
-    gap: var(--gap-tight);
-  }
-
-  .panel,
-  .region--kit .panel {
-    flex-basis: 100%;
-  }
-}
+/* The responsive stack is in paint.css, at the one agreed breakpoint. */
 
 @media (prefers-reduced-motion: reduce) {
   *,

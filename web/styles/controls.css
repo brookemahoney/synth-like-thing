@@ -14,6 +14,13 @@
    on the semantic element. And --ctl-position (0..1, written by the factory from
    the store) drives the paint, so no JavaScript computes any geometry.
 
+   Every control is painted with THREE passes, which is what makes it read as
+   impasto rather than as a styled form control:
+     the wash      a soft halo of the control's hue, as if paint soaked out
+     the body      a loaded dab of pigment with an irregular edge
+     the glint     a small wet highlight, offset up and to the left
+   The pointer is a single brush stroke from the dab's centre toward the value.
+
    No colours here are literal: they are read from :root in base.css through
    --hue / --hue-deep, so the repaint in task 002 is a change to one file.
    ========================================================================== */
@@ -46,10 +53,7 @@
   letter-spacing: 0.04em;
   color: var(--ink-soft);
   text-align: center;
-  max-width: 6rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  max-width: 6.5rem;
   cursor: default;
 }
 
@@ -84,13 +88,47 @@
   color: transparent;
 }
 
+/* `appearance: none` on the element is not enough: Chromium still paints the
+   native range thumb as a small blue disc over the dab, which reads as a
+   plastic button rather than paint. The thumb and the track must be reset
+   separately in each engine. */
+.ctl__input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 1px;
+  height: 1px;
+  border: 0;
+  background: transparent;
+}
+
+.ctl__input::-webkit-slider-runnable-track {
+  background: transparent;
+  border: 0;
+}
+
+.ctl__input::-moz-range-thumb {
+  width: 1px;
+  height: 1px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.ctl__input::-moz-range-track {
+  background: transparent;
+  border: 0;
+}
+
 .ctl__input:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 3px;
   border-radius: var(--radius-paint);
 }
 
-/* --- rotary -------------------------------------------------------------- */
+/* --- rotary: an impasto dab ---------------------------------------------
+   A circular dab of wet pigment with a slightly irregular edge, a tick ring of
+   small daubs around it, a radial highlight that says the paint is still wet,
+   and one brush stroke from the centre toward the value. */
 
 .ctl--rotary .ctl__paint {
   width: var(--knob);
@@ -106,23 +144,44 @@
   background: conic-gradient(
     from 225deg,
     var(--hue-deep) 0deg calc(var(--ctl-position, 0) * 270deg),
-    var(--panel-edge) calc(var(--ctl-position, 0) * 270deg) 270deg,
+    rgb(var(--hue-rgb) / 0.28) calc(var(--ctl-position, 0) * 270deg) 270deg,
     transparent 270deg
   );
   -webkit-mask: radial-gradient(circle, transparent 0 58%, #000 60%);
   mask: radial-gradient(circle, transparent 0 58%, #000 60%);
 }
 
-/* the knob body, and its pointer line, which points at the arc */
-.ctl--rotary .ctl__dab {
+/* the tick ring: eleven small daubs of unloaded wash, the painter's marks
+   around the outside of the dab */
+.ctl--rotary .ctl__paint::after {
+  content: "";
   position: absolute;
-  inset: 18%;
+  inset: 0;
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, var(--panel) 0%, var(--ground-deep) 60%, var(--panel-edge) 100%);
-  border: var(--hairline) solid var(--hue-deep);
-  box-shadow: 0 1px 2px rgb(43 39 34 / 0.25);
+  background: repeating-conic-gradient(
+    from 225deg,
+    rgb(var(--hue-deep-rgb) / 0.85) 0deg 4.4deg,
+    transparent 4.4deg 24.55deg
+  );
+  -webkit-mask: radial-gradient(circle, transparent 0 76%, #000 80%, #000 97%, transparent 100%);
+  mask: radial-gradient(circle, transparent 0 76%, #000 80%, #000 97%, transparent 100%);
 }
 
+/* the dab: irregular border-radius, a loaded body, and the wet glint */
+.ctl--rotary .ctl__dab {
+  position: absolute;
+  inset: 15%;
+  border-radius: 44% 56% 49% 51% / 55% 45% 55% 45%;
+  background:
+    radial-gradient(circle at 34% 26%, rgb(255 255 255 / 0.42), transparent 30%),
+    radial-gradient(circle at 42% 38%, var(--hue), rgb(var(--hue-rgb) / 0.95) 55%, var(--hue-deep) 100%);
+  box-shadow:
+    0 1px 2px rgb(var(--ink-rgb) / 0.32),
+    inset 0 -1px 2px rgb(var(--ink-rgb) / 0.24);
+  transition: border-radius 120ms ease-out;
+}
+
+/* the pointer: one brush stroke from the centre toward the value */
 .ctl--rotary .ctl__dab::after {
   content: "";
   position: absolute;
@@ -132,35 +191,43 @@
   height: 34%;
   margin-left: -1px;
   border-radius: 1px;
-  background: var(--ink);
+  /* a loaded stroke: dense at the dab, thinning toward the rim */
+  background: linear-gradient(rgb(var(--ink-rgb) / 0.95), rgb(var(--ink-rgb) / 0.55));
   transform: rotate(calc(-135deg + var(--ctl-position, 0) * 270deg));
   transform-origin: 50% 128%;
 }
 
 .ctl--rotary.is-dragging .ctl__dab {
-  border-color: var(--ink);
+  border-radius: 56% 44% 51% 49% / 45% 55% 45% 55%;
 }
 
-/* --- faders -------------------------------------------------------------- */
+/* --- faders: a brush stroke in a wash ------------------------------------ */
 
 .ctl--vfader .ctl__paint,
 .ctl--hfader .ctl__paint {
-  background: var(--panel-shade);
-  border: var(--hairline) solid var(--panel-edge);
-  box-shadow: inset 0 1px 2px rgb(43 39 34 / 0.18);
+  background: rgb(var(--ground-deep-rgb) / 0.75);
+  border: var(--hairline) solid rgb(var(--hue-deep-rgb) / 0.4);
+  box-shadow: inset 0 1px 2px rgb(var(--ink-rgb) / 0.16);
 }
 
 .ctl--vfader .ctl__paint {
   width: var(--fader-thick);
   height: var(--fader-long);
-  background: linear-gradient(
-    to top,
-    var(--hue-deep) 0 calc(var(--ctl-position, 0) * 100%),
-    var(--panel-shade) calc(var(--ctl-position, 0) * 100%) 100%
-  );
+  /* Two layers: the loaded stroke of the section hue, filled from the bottom
+     (the minimum) up to the value line, and beneath it the dry brush texture of
+     the well that shows through wherever the paint has not been laid. */
+  background-image:
+    linear-gradient(
+      to top,
+      var(--hue-deep) 0,
+      var(--hue) calc(var(--ctl-position, 0) * 100%),
+      transparent calc(var(--ctl-position, 0) * 100%)
+    ),
+    repeating-linear-gradient(to top, rgb(255 255 255 / 0.5) 0 1px, transparent 1px 4px);
+  background-color: rgb(var(--ground-deep-rgb) / 0.75);
 }
 
-/* the cap, sitting on the value line */
+/* the cap: a small rectangular impasto dab, sitting on the value line */
 .ctl--vfader .ctl__dab {
   position: absolute;
   left: -25%;
@@ -168,20 +235,25 @@
   height: 0.7rem;
   bottom: calc(var(--ctl-position, 0) * 100%);
   transform: translateY(50%);
-  border-radius: 2px;
-  background: linear-gradient(var(--panel) 0 40%, var(--hue) 40% 100%);
-  border: var(--hairline) solid var(--ink);
-  box-shadow: 0 1px 2px rgb(43 39 34 / 0.3);
+  border-radius: 3px 2px 3px 2px;
+  background: linear-gradient(var(--panel) 0 38%, var(--hue) 38% 100%);
+  box-shadow:
+    0 1px 2px rgb(var(--ink-rgb) / 0.32),
+    inset 0 1px 0 rgb(255 255 255 / 0.6);
 }
 
 .ctl--hfader .ctl__paint {
   width: 10rem;
   height: var(--fader-short);
-  background: linear-gradient(
-    to right,
-    var(--hue-deep) 0 calc(var(--ctl-position, 0) * 100%),
-    var(--panel-shade) calc(var(--ctl-position, 0) * 100%) 100%
-  );
+  background-image:
+    linear-gradient(
+      to right,
+      var(--hue-deep) 0,
+      var(--hue) calc(var(--ctl-position, 0) * 100%),
+      transparent calc(var(--ctl-position, 0) * 100%)
+    ),
+    repeating-linear-gradient(to right, rgb(255 255 255 / 0.5) 0 1px, transparent 1px 4px);
+  background-color: rgb(var(--ground-deep-rgb) / 0.75);
 }
 
 .ctl--hfader .ctl__dab {
@@ -191,10 +263,11 @@
   width: 0.7rem;
   left: calc(var(--ctl-position, 0) * 100%);
   transform: translateX(-50%);
-  border-radius: 2px;
-  background: linear-gradient(90deg, var(--panel) 0 40%, var(--hue) 40% 100%);
-  border: var(--hairline) solid var(--ink);
-  box-shadow: 0 1px 2px rgb(43 39 34 / 0.3);
+  border-radius: 2px 3px 2px 3px;
+  background: linear-gradient(90deg, var(--panel) 0 38%, var(--hue) 38% 100%);
+  box-shadow:
+    0 1px 2px rgb(var(--ink-rgb) / 0.32),
+    inset 0 1px 0 rgb(255 255 255 / 0.6);
 }
 
 .ctl--vfader.is-dragging .ctl__dab,
@@ -202,7 +275,7 @@
   background: linear-gradient(var(--hue) 0 45%, var(--panel) 45% 100%);
 }
 
-/* --- toggle and step buttons --------------------------------------------- */
+/* --- toggle and step buttons: thick squares of wet pigment --------------- */
 
 .ctl--toggle .ctl__paint,
 .ctl--step .ctl__paint {
@@ -220,28 +293,35 @@
   justify-content: center;
   min-height: 1.9rem;
   padding: 0.15rem 0.7rem;
-  border: var(--hairline) solid var(--hue-deep);
+  /* inactive: a thin outline wash. active: loaded with the section hue, with
+     softened edges rather than a hard border. */
+  border: var(--hairline) solid rgb(var(--hue-deep-rgb) / 0.6);
   border-radius: var(--radius-paint);
-  background: var(--panel);
+  background: rgb(var(--hue-rgb) / 0.1);
   color: var(--ink);
   cursor: pointer;
-  box-shadow: 0 1px 1px rgb(43 39 34 / 0.15);
+  box-shadow: inset 0 1px 2px rgb(var(--ink-rgb) / 0.12);
+  transition: background 90ms ease-out, border-color 90ms ease-out;
 }
 
 .ctl--toggle .ctl__legend,
 .ctl--step .ctl__legend {
   max-width: none;
   font-size: var(--fs-micro);
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
 .ctl--toggle.is-on .ctl__input,
 .ctl--step.is-on .ctl__input {
-  background: var(--hue);
-  border-color: var(--ink);
-  box-shadow: inset 0 1px 3px rgb(43 39 34 / 0.35);
+  background:
+    radial-gradient(circle at 34% 26%, rgb(255 255 255 / 0.5), transparent 52%),
+    var(--hue);
+  border-color: var(--hue-deep);
+  box-shadow:
+    inset 0 1px 3px rgb(var(--ink-rgb) / 0.3),
+    0 1px 1px rgb(var(--ink-rgb) / 0.12);
 }
 
 .ctl--toggle .ctl__input:active,
@@ -258,9 +338,9 @@
 .ctl--choice .ctl__select {
   font-size: var(--fs-small);
   padding: 0.15rem 0.3rem;
-  border: var(--hairline) solid var(--hue-deep);
+  border: var(--hairline) solid rgb(var(--hue-deep-rgb) / 0.55);
   border-radius: var(--radius-paint);
-  background: var(--panel);
+  background: rgb(var(--panel-rgb) / 0.9);
   color: var(--ink);
   cursor: pointer;
 }

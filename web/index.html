@@ -11,6 +11,7 @@
     />
     <link rel="stylesheet" href="./styles/base.css" />
     <link rel="stylesheet" href="./styles/controls.css" />
+    <link rel="stylesheet" href="./styles/paint.css" />
     <!-- An empty data URI: the instrument ships no binary media, and this stops
          the browser asking for a favicon that is not there. -->
     <link rel="icon" href="data:," />
@@ -96,5 +97,9 @@
     </main>
 
     <script type="module" src="./ui/main.js"></script>
+    <!-- The painted layer: the generated ground texture and the reactive dab
+         canvas. It self-initialises on import and reads only the parameter
+         store, so it needs nothing from main.js. -->
+    <script type="module" src="./ui/paint.js"></script>
   </body>
 </html>

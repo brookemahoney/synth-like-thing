@@ -1,0 +1,384 @@
+/* =============================================================================
+   paint.css — the painted layer. Loaded after base.css and controls.css.
+
+   base.css holds the tokens and the structural reset. This file turns them into
+   the surface the plan describes:
+
+     - the GROUND: a warm parchment sheet with broad soft washes that read as sky
+       and water, and a fine impasto texture over it. Both texture tiles are
+       generated at runtime by ui/paint.js and handed in as --impasto-grain and
+       --impasto-brush, so the site ships no image file at all.
+     - COLOUR AS SECTION MEMBERSHIP: every region carries a --section-rgb, and a
+       wash of that hue is the region's ground. A hue is never decoration.
+     - TYPOGRAPHY: legends in a serif display face, readouts in a system sans,
+       charcoal for both — chosen to clear WCAG AA against the parchment.
+     - THE REACTIVE DAB LAYER's canvas: fixed, behind the instrument, and never a
+       pointer target.
+     - the RESPONSIVE STACK at the one agreed breakpoint, 900px.
+
+   The one colour here that is not from the palette is --playhead. It is a
+   cadmium vermilion rather than any of the five pastels, because the step that
+   is currently sounding must never be mistakable for a lane.
+   ========================================================================== */
+
+:root {
+  /* --- the ground -------------------------------------------------------- */
+  --wash-sky: rgb(var(--sky-rgb) / 0.34);
+  --wash-lavender: rgb(var(--lavender-rgb) / 0.3);
+  --wash-ochre: rgb(var(--ochre-rgb) / 0.26);
+  --wash-rose: rgb(var(--rose-rgb) / 0.22);
+  --wash-sage: rgb(var(--sage-rgb) / 0.24);
+
+  /* The playing step. Deliberately NOT one of the five section hues. */
+  --playhead: #c1452f;
+  --playhead-rgb: 193 69 47;
+  --playhead-glint: #fbeed2;
+}
+
+/* --- the ground ----------------------------------------------------------
+   Four broad washes over the sheet, then the two generated tiles. The washes
+   are what stop a very large area of colour reading as flat digital fill; the
+   tiles are what stop it reading as smooth vector.
+   `fixed` so the sheet stays put and the instrument scrolls over it, like paint
+   under glass. */
+
+html {
+  background-color: var(--ground-deep);
+}
+
+body {
+  background-color: var(--ground);
+  background-image:
+    var(--impasto-brush, none),
+    var(--impasto-grain, none),
+    radial-gradient(120% 62% at 12% -8%, var(--wash-sky), transparent 62%),
+    radial-gradient(96% 54% at 92% 2%, var(--wash-lavender), transparent 58%),
+    radial-gradient(130% 66% at 74% 104%, var(--wash-ochre), transparent 64%),
+    radial-gradient(88% 48% at 4% 96%, var(--wash-rose), transparent 60%),
+    linear-gradient(177deg, var(--ground-lit) 0%, var(--ground) 44%, var(--ground-deep) 100%);
+  background-blend-mode: soft-light, overlay, normal, normal, normal, normal, normal;
+  background-size: 192px 192px, 128px 128px, cover, cover, cover, cover, cover;
+  background-repeat: repeat, repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+  background-attachment: fixed, fixed, fixed, fixed, fixed, fixed, fixed;
+}
+
+/* --- the reactive dab layer's canvas -------------------------------------- */
+
+.paint-layer {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  /* It is decoration behind the instrument: it must never take a gesture, a
+     click, or a text selection. */
+  pointer-events: none;
+}
+
+.instrument {
+  position: relative;
+  z-index: 1;
+}
+
+/* Switched off from ui/paint.js: the loop is already cancelled, and the canvas
+   is cleared, so there is nothing left of the layer to show. */
+html[data-paint-layer-on="false"] .paint-layer {
+  visibility: hidden;
+}
+
+/* --- colour as section membership ----------------------------------------
+   One hue family per functional region, so a glance at the surface says which
+   part of the instrument you are looking at. The controls inside a region keep
+   their own data-hue from ui/controls.js — the wash is the region, the dab is
+   the control — so a repeated wash never makes a lane ambiguous. */
+
+[data-region="global-strip"] { --section-rgb: var(--sage-rgb); }
+[data-region="voice-row"] { --section-rgb: var(--sky-rgb); }
+[data-region="tone-row"] { --section-rgb: var(--ochre-rgb); }
+[data-region="effects-row"] { --section-rgb: var(--sky-rgb); }
+[data-region="modulation-row"] { --section-rgb: var(--lavender-rgb); }
+[data-region="drum-kit"] { --section-rgb: var(--rose-rgb); }
+[data-region="sequencer"] { --section-rgb: var(--ochre-rgb); }
+[data-region="keyboard"] { --section-rgb: var(--sky-rgb); }
+
+/* Fallback for any region added later without a hue: the ink, faintly. */
+.region {
+  --section: rgb(var(--section-rgb, var(--ink-faint-rgb)));
+  min-width: 0;
+  border-color: rgb(var(--section-rgb, var(--ink-faint-rgb)) / 0.34);
+  /* A wash of the section hue laid over the sheet, with the impasto grain
+     multiplied through it, so even a large region is never a flat fill. */
+  background-image:
+    linear-gradient(
+      166deg,
+      rgb(var(--section-rgb, var(--ink-faint-rgb)) / 0.17),
+      rgb(var(--section-rgb, var(--ink-faint-rgb)) / 0.04) 58%,
+      rgb(var(--ground-deep-rgb) / 0.4)
+    ),
+    var(--impasto-grain, none);
+  background-blend-mode: normal, overlay;
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.4),
+    0 1px 2px rgb(var(--ink-rgb) / 0.06);
+}
+
+/* the region legend, and the brush stroke of a rule under it */
+.region__title {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-tight);
+  font-family: var(--font-legend);
+  font-size: var(--fs-small);
+  font-weight: 600;
+  font-style: italic;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: var(--ink);
+}
+
+.region__title::after {
+  content: "";
+  flex: 1 1 auto;
+  height: 3px;
+  border-radius: 2px;
+  /* a loaded brush stroke that thins out, not a rule */
+  background: linear-gradient(
+    90deg,
+    rgb(var(--section-rgb, var(--ink-faint-rgb)) / 0.72),
+    rgb(var(--section-rgb, var(--ink-faint-rgb)) / 0.18) 62%,
+    transparent
+  );
+}
+
+/* --- panels -------------------------------------------------------------- */
+
+.panel {
+  min-width: 0;
+  border-color: rgb(var(--section-rgb, var(--ink-faint-rgb)) / 0.3);
+  background-color: rgb(var(--panel-rgb) / 0.62);
+  background-image:
+    linear-gradient(172deg, rgb(255 255 255 / 0.5), rgb(var(--ground-deep-rgb) / 0.34)),
+    var(--impasto-grain, none);
+  background-blend-mode: normal, overlay;
+  box-shadow: 0 1px 2px rgb(var(--ink-rgb) / 0.07);
+}
+
+.panel__title {
+  font-family: var(--font-legend);
+  font-size: var(--fs-small);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: none;
+  color: var(--ink);
+  border-bottom-color: rgb(var(--section-rgb, var(--ink-faint-rgb)) / 0.28);
+}
+
+.panel__caption {
+  font-family: var(--font-legend);
+  font-style: italic;
+  color: var(--ink-faint);
+}
+
+/* the empty grids that later tasks fill */
+.headgrid__corner,
+.headgrid__cell {
+  background: rgb(var(--section-rgb, var(--ink-faint-rgb)) / 0.09);
+}
+
+.stepruler__step {
+  color: var(--ink-soft);
+  background: rgb(var(--section-rgb, var(--ink-faint-rgb)) / 0.08);
+  border-radius: 3px 3px 2px 2px;
+}
+
+.stepruler__step:nth-child(4n + 1) {
+  color: var(--ink);
+  background: rgb(var(--section-rgb, var(--ink-faint-rgb)) / 0.2);
+}
+
+/* --- typography ----------------------------------------------------------
+   Legends in the serif display face; every number in the system sans, with
+   tabular figures so a readout does not change width as a control moves.
+   Charcoal for both, cleared against the ground by the contrast test. */
+
+.masthead__title {
+  font-family: var(--font-legend);
+  font-weight: 600;
+  font-style: italic;
+  letter-spacing: 0.01em;
+}
+
+.masthead__sub {
+  font-family: var(--font-legend);
+  color: var(--ink-soft);
+}
+
+.ctl__legend {
+  font-family: var(--font-legend);
+  font-size: var(--fs-small);
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--ink);
+  /* the label is never carried by colour alone, and never clipped */
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.ctl__readout {
+  font-family: var(--font-readout);
+  color: var(--ink);
+  background: rgb(var(--panel-shade-rgb) / 0.8);
+  border-radius: 3px;
+}
+
+.ctl--choice .ctl__readout {
+  color: var(--ink-soft);
+}
+
+.ctl__select {
+  font-family: var(--font-readout);
+  color: var(--ink);
+  background-color: rgb(var(--panel-rgb) / 0.9);
+  border-color: rgb(var(--hue-deep-rgb) / 0.55);
+}
+
+.headgrid__head {
+  font-family: var(--font-ui);
+  color: var(--ink-soft);
+}
+
+/* --- the keybed ---------------------------------------------------------- */
+
+.keybed {
+  border-radius: var(--radius);
+  box-shadow: inset 0 0 0 1px rgb(var(--ink-rgb) / 0.1);
+}
+
+/* --- focus ---------------------------------------------------------------
+   One treatment for the whole instrument: a charcoal ring drawn above the paint
+   with a pale halo, so it reads on a dark dab as well as on the parchment. */
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgb(var(--ground-lit-rgb) / 0.85);
+}
+
+.ctl__input:focus-visible {
+  box-shadow: 0 0 0 4px rgb(var(--ground-lit-rgb) / 0.85);
+}
+
+/* --- sequencer lanes and the playhead ------------------------------------
+   CONTRACT FOR TASK 010 (ui/…/sequencer.js). It renders one element per lane
+   carrying data-lane="bd" | … | "melody", and one element per step. A step that
+   has just fired is marked data-playing="true". Nothing else is needed here: the
+   lane hue and the playhead accent are already resolved, so the sequencer
+   module never touches this stylesheet.
+
+   The store key it reads for the firing step is `seq.step` (1..16). It has to be
+   added to SCHEMA in ui/params.js by whichever task owns that file — this task
+   does not write there.
+
+   The same applies to the output level the reactive dab layer reacts to: it
+   reads `global.meter` first, then `global.level`, then `ui.level` (see
+   LEVEL_KEYS in ui/paint.js). None of them is declared in the schema yet, so the
+   layer follows the writes and defaults to silence until TASK 013 binds the
+   analyser to one of them. */
+
+[data-lane] {
+  --lane-rgb: var(--sky-rgb);
+}
+
+[data-lane="bd"] { --lane-rgb: var(--sky-rgb); }
+[data-lane="sd"] { --lane-rgb: var(--rose-rgb); }
+[data-lane="lt"] { --lane-rgb: var(--ochre-rgb); }
+[data-lane="mt"] { --lane-rgb: var(--lavender-rgb); }
+[data-lane="ht"] { --lane-rgb: var(--sage-rgb); }
+[data-lane="rs"] { --lane-rgb: var(--sky-rgb); }
+[data-lane="cp"] { --lane-rgb: var(--rose-rgb); }
+[data-lane="cb"] { --lane-rgb: var(--ochre-rgb); }
+[data-lane="ch"] { --lane-rgb: var(--lavender-rgb); }
+[data-lane="oh"] { --lane-rgb: var(--sage-rgb); }
+[data-lane="cy"] { --lane-rgb: var(--sky-rgb); }
+[data-lane="melody"] { --lane-rgb: var(--ochre-rgb); }
+
+/* A step: a thick square of wet pigment. Inactive is a thin outline wash,
+   active is loaded with the lane hue. */
+.step {
+  min-width: 0;
+  border: var(--hairline) solid rgb(var(--lane-rgb, var(--ink-faint-rgb)) / 0.5);
+  border-radius: var(--radius-paint);
+  background: rgb(var(--lane-rgb, var(--ink-faint-rgb)) / 0.1);
+  box-shadow: inset 0 0 3px rgb(var(--ink-rgb) / 0.12);
+}
+
+.step.is-on {
+  background: rgb(var(--lane-rgb) / 0.85);
+  border-color: rgb(var(--lane-rgb) / 0.95);
+  box-shadow: inset 0 1px 3px rgb(var(--ink-rgb) / 0.3);
+}
+
+/* The one dab that glistens. Vermilion and a wet glint, so it can never be read
+   as "this lane is a different colour". */
+.step[data-playing="true"],
+[data-playing="true"] {
+  background:
+    radial-gradient(circle at 34% 28%, var(--playhead-glint), transparent 58%),
+    var(--playhead);
+  border-color: var(--playhead);
+  box-shadow:
+    inset 0 0 4px rgb(var(--playhead-rgb) / 0.6),
+    0 0 6px rgb(var(--playhead-rgb) / 0.45);
+}
+
+/* --- the responsive stack -------------------------------------------------
+   The one breakpoint. Above it the regions sit in the Thor arrangement: a strip
+   across the top, then rows of panels, then the sequencer and the keybed across
+   the full width. At 900px and below every panel takes the full width of its
+   region and the regions stack in the same vertical order — the order is
+   REGION_ORDER in ui/surface.js, and no rule here changes it. */
+
+@media (max-width: 56.25rem) {
+  .instrument {
+    padding: var(--gap-tight);
+  }
+
+  .region,
+  .region__panels,
+  .panel__grid {
+    gap: var(--gap-tight);
+  }
+
+  .region {
+    padding: var(--gap);
+  }
+
+  /* Every panel is a full-width band: nothing is squeezed, nothing is clipped,
+     and nothing can push the page wider than the viewport. */
+  .panel,
+  .region--kit .panel,
+  .panel--matrix,
+  .panel--steps {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  /* Eight matrix columns plus a row-head have to fit a phone. The row heads
+     shrink to initials-sized widths rather than forcing a scroll. */
+  .headgrid {
+    grid-template-columns: minmax(0, 3rem) repeat(8, minmax(0, 1fr));
+  }
+
+  .headgrid__head {
+    font-size: 0.5625rem;
+  }
+
+  .ctl__paint {
+    /* the same dab, slightly smaller, so a 15-control panel still fits */
+    --knob: 2.7rem;
+  }
+
+  .keybed {
+    height: 6rem;
+  }
+}
