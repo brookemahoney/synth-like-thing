@@ -469,10 +469,10 @@ The graph is acyclic. Task 003 is the audio trunk: it creates the `AudioContext`
 
 **Phase notes:** The largest phase. Task 007 needs Task 006's destinations and its clamp helper. Task 010 needs Task 009's clock and produces melodic note events into Task 003's note path. Task 011 supplies the held-note registry that Task 010's arpeggiator reads; until it lands, the arpeggiator is verifiable against the melodic lane.
 
-### Phase 6: Persistence and Observability
+### ✅ Phase 6: Persistence and Observability
 **Parallel Tasks:**
-- Task 012: Preset system - 12 slots and JSON round-trip (depends on: 010)
-- Task 013: Level meter and runtime inspection handle (depends on: 008, 009, 010)
+- ✔️ Task 012: Preset system - 12 slots and JSON round-trip (depends on: 010)
+- ✔️ Task 013: Level meter and runtime inspection handle (depends on: 008, 009, 010)
 
 **Phase notes:** Task 012 needs Task 010's patterns, chain order, swing and tempo because presets own them. Task 013 needs the analyser's `fftSize` fixed by Task 008, the eleven drum trigger counters from Task 009 and the firing step and pattern from Task 010. Both must complete before the plan's Self Validation steps can run.
 
