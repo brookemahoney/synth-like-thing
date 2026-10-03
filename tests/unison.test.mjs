@@ -276,7 +276,9 @@ test('unison copies are stopped at note-off and retired, so they cannot outlive 
   for (const copy of copies) assert.ok(copy.stoppedAt > 1, 'a copy is stopped after the fade, like the core voice');
   assert.equal(voice.liveState().soundingSources, 0, 'and nothing is left running once the note is released');
 
-  context.advance(1.1); // past the release fade at t=1.03
+  // Task 6: a source outlives the note for the amp envelope's RELEASE (0.8 s on
+  // the init patch, plus the 30 ms fade before the stop), not just the fade.
+  context.advance(2); // past the release, which ends at t=1.83
   assert.equal(liveOf('unison-copy'), 0, 'and every one retired');
   assert.equal(liveOf('oscillator'), 0);
 });
@@ -350,7 +352,7 @@ test('THE LOAD: 16 voices x 3 cores x 7 is 288 copies, and only for the cores th
   assert.equal(liveOf('unison-copy') + liveOf('oscillator'), 240, '240 oscillators for the loudest 16-voice unison patch');
 
   for (const voice of voices) voice.release(0.5);
-  context.advance(1.1); // past the release fade
+  context.advance(2); // past the amp envelope's 0.8 s release and its fade
   assert.equal(liveOf('unison-copy'), 0);
   assert.equal(liveOf('oscillator'), 0);
 });

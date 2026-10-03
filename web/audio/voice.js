@@ -6,11 +6,16 @@
  * by a later task):
  *
  *   core1 ─┐  oscillator  ─> core1 gain ─┐
- *   core2 ─┤  oscillator  ─> core2 gain ─┼─> voice mix ─> VCA ─> ENTRY ─> parent
- *   core3 ─┤  oscillator  ─> core3 gain ─┘                                  (master)
- *   ring ──┤  (task 4: ring products)             ^
- *   wave ──┘  (task 5: wavesampler slot)  tasks 6 insert filters between
- *                                            mix and VCA
+ *   core2 ─┤  oscillator  ─> core2 gain ─┼─> voice mix ─┐
+ *   core3 ─┤  oscillator  ─> core3 gain ─┘              │
+ *   ring ──┤  (task 4: ring products)                    │
+ *   wave ──┘  (task 5: wavesampler slot)                │
+ *                                                        ▼
+ *              filter 1 ─> filter 2 ─> VCA (amp ADSR) ─> ENTRY ─> parent
+ *
+ *   The filter bank (task 6) sits between the mixer and the amplifier, and the
+ *   amplifier is under the amp ADSR. `entry` does not move: it is still the one
+ *   node whose disconnection ends the voice.
  *
  *   Every core also owns a `ConstantSourceNode` whose `offset` is that core's
  *   ABSOLUTE FREQUENCY IN HZ, connected into each of its oscillators'
@@ -54,13 +59,28 @@
  *   one core should not pay for the other two. They are stopped with the core's
  *   own source at note-off, so they cannot outlive the note.
  *
+ * THE FILTER BANK AND THE ENVELOPES (task 6)
+ *   `voice.filters` is a pair of stages, each a drive shaper and two biquad
+ *   sections, and `routeChain()` is the one place their order and their bypasses
+ *   are decided. A bypass rewires AROUND the stage rather than muting it, so a
+ *   bypassed stage contributes neither slope nor resonance and stops costing
+ *   anything downstream. The cutoff a stage runs at is resolved in one direction
+ *   and one direction only — panel value, then key tracking, then the matrix
+ *   route, then `clampCutoff` — so there is exactly one place a cutoff can be
+ *   made illegal, and it clamps.
+ *
+ *   `voice.ampEnv` owns the amplifier. `voice.filterEnv` owns nothing: it is a
+ *   modulation-matrix SOURCE with a shape and no amount, because the plan puts
+ *   its depth in the matrix cells for filter 1 and filter 2 cutoff.
+ *
  * TEARDOWN — THE PLAN'S NAMED RISK
  *   `entry` is the only node that leaves the voice. `kill()` disconnects that one
  *   node from its parent and stops the per-note sources. Nothing walks the graph
  *   unwiring children, so an oscillator mis-routed by a later task cannot
  *   outlive its voice: the path out of the voice is severed at a single point.
  *   tests/voice.test.mjs asserts that no child is disconnected during teardown,
- *   and tests/{fm,ring,unison}.test.mjs re-assert it after a hundred re-routes.
+ *   tests/filter-stage.test.mjs re-asserts it with the filter bank in the way, and
+ *   tests/{fm,ring,unison}.test.mjs re-assert it after a hundred re-routes.
  *
  *   Oscillators are never recycled. An OscillatorNode cannot be restarted, so
  *   note-on builds fresh ones and `onended` retires them; a note-off schedules
@@ -80,6 +100,18 @@
  *     voice.fmState(i) / voice.unisonState(i) / voice.ringState(i)
  *     voice.setFmAmount / setFmModulation / setUnisonSpread / setUnisonSpreadModulation
  *     voice.modulationPoints()       task 7's destinations
+ *     voice.modulationSources()      the per-voice matrix sources, incl. filterEnv
+ *
+ *     voice.filters / voice.filter(i) / voice.filterState(i) / voice.filterReads()
+ *     voice.applyFilter(i, key, value, opts)   the six `filter{n}.*` keys' door
+ *     voice.setFilterBypass(i, on, opts)       a graph change, not a mute
+ *     voice.setCutoffModulation(i, cents, opts) / voice.cutoffModulation(i)
+ *     voice.filterCutoff(i)         the hertz the stage is actually running at
+ *     voice.applyEnvelope(prefix, name, value, opts)  the `env*.{shape}` door
+ *     voice.envelopeStage(which) / voice.envelopeValue(which)
+ *     voice.ampEnvValue() / voice.filterEnvValue()
+ *     voice.setAmpLevelBias(delta, opts) / voice.ampLevelBias()
+ *
  *     voice.livePitch(i) / livePitchSpan(i) / liveState()
  */
 
@@ -89,6 +121,19 @@ import { computeCoreFrequency, midiToHz } from './pitch.js';
 import { createNoiseSource } from './noise.js';
 import { createConstantSource, createGain, createOscillator, retireNode } from './nodes.js';
 import { rampTo, setNow } from './automation.js';
+import {
+  FILTER_KEYS,
+  FILTER_MODES,
+  KEY_TRACK_REFERENCE_NOTE,
+  CUTOFF_MOD_CENTS,
+  clampCutoff,
+  clampCutoffModulation,
+  createFilterStage,
+  cutoffWithKeyTrack,
+  cutoffWithModulation,
+  registerFilterVoice,
+} from './filter.js';
+import { clampTimes, createEnvelope, registerEnvelopeVoice } from './env.js';
 import {
   CORE_COUNT,
   RING_BUS_LEVEL,
@@ -109,12 +154,12 @@ import {
 
 export { CORE_COUNT };
 
-/** How long a released voice fades before its sources are stopped. Without the
- *  amp envelope (task 6) this is a short click-free fade rather than a cut. */
-export const RELEASE_FADE_SECONDS = 0.03;
+/** The two filter stages per voice, and the amp envelope's peak. */
+const FILTER_COUNT = 2;
 
-/** A note-on fade-in, so a reused voice does not start with a step. */
-const ATTACK_FADE_SECONDS = 0.005;
+/** A released voice fades before its sources are stopped, so the sources outlive
+ *  the envelope's release by this much rather than being cut at its end. */
+export const RELEASE_FADE_SECONDS = 0.03;
 
 /** The matrix may not take a pitch route further than four octaves from centre. */
 const MATRIX_PITCH_LIMIT_CENTS = 4 * 1200;
@@ -158,25 +203,50 @@ export function createVoice({ context, parent, read, index = 0 } = {}) {
     ringBus: null,
     waveSlot: null,
     entry: null,
+    /** Task 6: the two filter stages and the two envelopes. */
+    filters: null,
+    filterControls: null,
+    ampEnv: null,
+    filterEnv: null,
   };
 
   let modCents = [0, 0, 0];
   let sources = [];
   let attached = false;
   let ringBusTarget = 0;
+  /** The chain edges currently made, so bypass can take exactly them back. */
+  let chainLinks = [];
+  /** Task 7's additive bias into the amp envelope's peak. Zero until it writes. */
+  let ampLevelBiasValue = 0;
 
   /* ------------------------------------------------------------ the build --- */
 
   function build() {
     // The entry point is the outermost node: the one disconnection that ends
-    // this voice. Task 6 inserts the filters between mix and vca; entry does not
-    // move, so the teardown path does not change.
+    // this voice. Task 6 inserted the filter bank between mix and vca; entry does
+    // not move, so the teardown path does not change.
     voice.entry = createGain(context, 'voice-entry');
     voice.vca = createGain(context, 'voice-vca');
     voice.mix = createGain(context, 'voice-mix');
     voice.vca.gain.value = 0; // silent until a note starts
-    voice.mix.connect(voice.vca);
+    // The amplifier -> entry edge is permanent. Only the chain BEFORE the
+    // amplifier is rewirable, so bypass never touches the way out of the voice.
     voice.vca.connect(voice.entry);
+
+    // Task 6's bank. `routeChain()` makes the connections, because bypass has to
+    // be able to take them back — so mix does NOT connect to the vca here.
+    voice.filters = [];
+    voice.filterControls = [];
+    for (let i = 0; i < FILTER_COUNT; i += 1) {
+      voice.filters.push(createFilterStage({ context, index: i }));
+      voice.filterControls.push(emptyFilterControl(i));
+    }
+    routeChain();
+
+    // The amp envelope drives the amplifier; the filter envelope drives nothing —
+    // it is a matrix SOURCE, and its depth lives in the matrix cells.
+    voice.ampEnv = createEnvelope({ context, param: voice.vca.gain, peak: 1 });
+    voice.filterEnv = createEnvelope({ context, param: null, peak: 1 });
 
     // Placeholder summing inputs. They exist NOW, silent, so tasks 4, 5 and 6
     // fill them without unwiring or rewiring the mixer.
@@ -251,6 +321,120 @@ export function createVoice({ context, parent, read, index = 0 } = {}) {
     if (!core) return null;
     Object.assign(core.read, coreRead(i));
     return core.read;
+  }
+
+  /* -------------------------------------------------- the filter bank (task 6) --- */
+
+  /** A stage's control values, before the store has been read. */
+  function emptyFilterControl(i) {
+    return {
+      index: i,
+      type: 'lp24',
+      cutoff: 350,
+      resonance: 1,
+      drive: 0,
+      keyTrack: 0,
+      bypass: false,
+      /** Task 7's additive contribution, in cents. Zero until something routes. */
+      cutoffRoute: 0,
+      /** The hertz actually written to the sections, after tracking and the clamp. */
+      appliedHz: 350,
+    };
+  }
+
+  /**
+   * THE CHAIN: mix -> filter 1 -> filter 2 -> amplifier, with every bypassed
+   * stage rewired AROUND rather than muted. Rebuilt as a list of edges every time
+   * a bypass changes, and only the edges that actually changed are connected or
+   * disconnected — so a bypass toggle costs two connections, not a graph walk.
+   *
+   * `chainLinks` is the memory of what is currently wired. Without it a bypass
+   * could not be undone, and the "nothing is individually disconnected at
+   * teardown" rule would have an exception in it.
+   */
+  function routeChain() {
+    const wanted = [];
+    let source = voice.mix;
+    for (const stage of voice.filters) {
+      if (stage.bypass) continue;
+      wanted.push([source, stage.input]);
+      source = stage.output;
+    }
+    wanted.push([source, voice.vca]);
+
+    const same = (a, b) => a[0] === b[0] && a[1] === b[1];
+    for (const link of chainLinks) if (!wanted.some((next) => same(link, next))) dropConnection(link[0], link[1]);
+    for (const link of wanted) if (!chainLinks.some((now) => same(now, link))) link[0].connect(link[1]);
+    chainLinks = wanted;
+    return wanted;
+  }
+
+  /** The panel's value for one filter key, read fresh — the store is the only
+   *  authority, so a control moved while the note sounds takes effect at once. */
+  function filterControlRead(i) {
+    const n = i + 1;
+    return {
+      type: read(`filter${n}.type`),
+      cutoff: read(`filter${n}.cutoff`),
+      resonance: read(`filter${n}.resonance`),
+      drive: read(`filter${n}.drive`),
+      keyTrack: read(`filter${n}.keyTrack`),
+      bypass: read(`filter${n}.bypass`),
+    };
+  }
+
+  /**
+   * Resolve one stage and write it. The resolution is the whole of the cutoff
+   * story, in one place, in this order:
+   *
+   *   panel value  ->  key tracking (a ratio against middle C)
+   *                ->  matrix route (cents, added)
+   *                ->  THE CLAMP (20 Hz..20 kHz, and a fraction of the sample rate)
+   *
+   * Nothing below this line can move a cutoff, which is why task 7 has nothing
+   * to clamp for itself.
+   */
+  function applyFilterStage(i, { at, ramp = true, seconds } = {}) {
+    const stage = voice.filters?.[i];
+    const control = voice.filterControls?.[i];
+    if (!stage || !control) return false;
+    stage.setMode(control.type, { at });
+    const note = Number.isFinite(voice.note) ? voice.note : KEY_TRACK_REFERENCE_NOTE;
+    const tracked = cutoffWithKeyTrack(control.cutoff, note, control.keyTrack);
+    const hz = clampCutoff(cutoffWithModulation(tracked, control.cutoffRoute), context.sampleRate);
+    control.appliedHz = hz;
+    stage.setFrequency(hz, { at, ramp, seconds });
+    stage.setResonance(control.resonance, { at, ramp, seconds });
+    stage.setDrive(control.drive, { at, ramp, seconds });
+    if (stage.bypass !== Boolean(control.bypass)) {
+      stage.bypass = Boolean(control.bypass);
+      routeChain();
+    }
+    return hz;
+  }
+
+  /** Bring both stages in line with the store, from scratch. Note-on does this in
+   *  silence-friendly writes, because nothing is sounding yet. */
+  function applyAllFilters(at, ramp = false) {
+    for (let i = 0; i < FILTER_COUNT; i += 1) {
+      Object.assign(voice.filterControls[i], filterControlRead(i));
+      applyFilterStage(i, { at, ramp });
+    }
+  }
+
+  /** Bring both envelopes in line with the store. */
+  function applyAllEnvelopes() {
+    voice.ampEnv.setTimes(clampTimes(readEnvTimes('envAmp')));
+    voice.filterEnv.setTimes(clampTimes(readEnvTimes('envFilter')));
+  }
+
+  function readEnvTimes(prefix) {
+    return {
+      attack: read(`${prefix}.attack`),
+      decay: read(`${prefix}.decay`),
+      sustain: read(`${prefix}.sustain`),
+      release: read(`${prefix}.release`),
+    };
   }
 
   /* -------------------------------------------------------------- a note --- */
@@ -584,10 +768,13 @@ export function createVoice({ context, parent, read, index = 0 } = {}) {
       core.spreadWritten = NaN; // forces the first spread write
     }
 
-    // The voice comes up over a few milliseconds rather than appearing at full
-    // level. One call, not two: rampTo holds the current value first, so a
-    // setValueAtTime written just before it would be cancelled by that hold.
-    rampTo(voice.vca.gain, 1, context, { at: when, seconds: ATTACK_FADE_SECONDS });
+        // The voice comes up over its amp envelope's attack, not over a fixed fade:
+    // the envelope owns the amplifier now, and it holds the value itself if a
+    // reused voice is still finishing the previous note's release.
+    applyAllFilters(when, false);
+    applyAllEnvelopes();
+    voice.ampEnv.start(when);
+    voice.filterEnv.start(when);
     setNow(voice.mix.gain, read('mixer.level'), context, { at: when });
 
     for (let i = 0; i < CORE_COUNT; i += 1) startCore(i, when);
@@ -600,9 +787,13 @@ export function createVoice({ context, parent, read, index = 0 } = {}) {
     const when = Number.isFinite(at) ? at : context.currentTime;
     voice.state = VOICE_STATE.RELEASED;
     voice.releasedAt = when;
-    // Fade the amplifier, then stop the sources: a hard cut clicks.
-    rampTo(voice.vca.gain, 0, context, { at: when, seconds: RELEASE_FADE_SECONDS });
-    stopSources(when);
+    // Both envelopes release from wherever they are — cancel-and-hold, so a note
+    // off during the attack does not jump up to the sustain level first. The amp
+    // envelope's length is returned because the sources have to outlive it: an
+    // 8 s release would otherwise be 8 s of silence.
+    const releaseSeconds = voice.ampEnv.release(when);
+    voice.filterEnv.release(when);
+    stopSources(when + releaseSeconds);
     return voice;
   };
 
@@ -617,9 +808,12 @@ export function createVoice({ context, parent, read, index = 0 } = {}) {
       voice.entry.disconnect();
       attached = false;
     }
-    // Ramp, not assign: a ramp to 1 may still be in flight from this voice's own
+        // Ramp, not assign: a ramp to 1 may still be in flight from this voice's own
     // attack, and a bare setValueAtTime would be overridden by its end point.
     if (voice.vca) rampTo(voice.vca.gain, 0, context, { at: when });
+    // The envelopes stop here rather than running on through an idle voice.
+    if (voice.ampEnv) voice.ampEnv.reset();
+    if (voice.filterEnv) voice.filterEnv.reset();
 
     voice.state = VOICE_STATE.IDLE;
     voice.noteId = null;
@@ -793,6 +987,125 @@ export function createVoice({ context, parent, read, index = 0 } = {}) {
     return applied;
   };
 
+  /* ------------------------------------------ the filter bank and the envelopes --- */
+
+  /** The two stages, or one of them. */
+  voice.filter = (i) => {
+    if (!voice.filters) throw new Error('voice.filter: the voice has no filters yet; start a note first');
+    const stage = voice.filters[i];
+    if (!stage) throw new Error(`voice.filter: no filter stage ${i}`);
+    return stage;
+  };
+
+  /** The panel's values for both stages, read fresh from the store. */
+  voice.filterReads = () => {
+    if (!voice.filterControls) return [];
+    voice.filterControls.forEach((_control, i) => Object.assign(voice.filterControls[i], filterControlRead(i)));
+    return voice.filterControls.map((control, i) => ({ ...control, filter: i }));
+  };
+
+  /**
+   * THE DOOR for the six `filter{n}.*` keys, exactly as `applyCoreModulation` is
+   * the door for task 4's five. The store fan-out in filter.js calls this for
+   * every built voice, so a control move reaches the whole pool through one
+   * function, and a key this task does not own is refused rather than ignored.
+   */
+  voice.applyFilter = (i, key, value, options = {}) => {
+    const control = voice.filterControls?.[i];
+    if (!control) return false;
+    const name = String(key).split('.').pop();
+    if (!FILTER_KEYS.includes(name)) return false;
+    if (name === 'bypass') control.bypass = Boolean(value);
+    else if (name === 'type') control.type = FILTER_MODES.includes(value) ? value : control.type;
+    else control[name] = value;
+    applyFilterStage(i, {
+      at: options.at,
+      ramp: options.ramp !== false,
+      seconds: options.seconds,
+    });
+    return true;
+  };
+
+  /** Bypass one stage: it leaves the chain entirely, it is not muted. */
+  voice.setFilterBypass = (i, on, options = {}) => voice.applyFilter(i, `filter${i + 1}.bypass`, Boolean(on), options) === true;
+
+  /**
+   * Task 7's route into a cutoff, in CENTS — the same units as the pitch
+   * destination, so the matrix has one unit for "how far to move a frequency"
+   * and one clamp to call. It is ADDITIVE with the panel value and with key
+   * tracking, and the total is clamped before it reaches a biquad.
+   */
+  voice.setCutoffModulation = (i, cents, options = {}) => {
+    const control = voice.filterControls?.[i];
+    if (!control) return 0;
+    control.cutoffRoute = clampCutoffModulation(cents);
+    applyFilterStage(i, { at: options.at, ramp: options.ramp !== false, seconds: options.seconds });
+    return control.cutoffRoute;
+  };
+
+  /** What the matrix is currently contributing to one stage's cutoff. */
+  voice.cutoffModulation = (i) => voice.filterControls?.[i]?.cutoffRoute ?? 0;
+
+  /** The frequency one stage is actually running at, in hertz. */
+  voice.filterCutoff = (i) => voice.filterControls?.[i]?.appliedHz ?? 0;
+
+  /** Everything an inspection panel needs about one stage. */
+  voice.filterState = (i) => {
+    const stage = voice.filters?.[i];
+    const control = voice.filterControls?.[i];
+    if (!stage || !control) return null;
+    return {
+      ...stage.state(),
+      keyTrack: control.keyTrack,
+      panelHz: control.cutoff,
+      routeCents: control.cutoffRoute,
+      appliedHz: control.appliedHz,
+    };
+  };
+
+  /* ---------------------------------------------------------- the envelopes --- */
+
+  /** One `envAmp.*` or `envFilter.*` key. The second door, for the envelope store
+   *  fan-out in env.js. A key this task does not own is refused. */
+  voice.applyEnvelope = (prefix, name, value, options = {}) => {
+    const envelope = prefix === 'envFilter' ? voice.filterEnv : prefix === 'envAmp' ? voice.ampEnv : null;
+    if (!envelope) return false;
+    if (name === 'peak') {
+      envelope.setPeak(value, options);
+      return true;
+    }
+    if (!['attack', 'decay', 'sustain', 'release'].includes(name)) return false;
+    envelope.setTimes({ [name]: value }, options);
+    return true;
+  };
+
+  /** Where an envelope is: 'idle' | 'attack' | 'decay' | 'sustain' | 'release'. */
+  voice.envelopeStage = (which = 'amp') => (which === 'filter' ? voice.filterEnv : voice.ampEnv)?.stage() ?? 'idle';
+
+  /** The live level of an envelope, 0..1. The filter envelope's is a matrix SOURCE. */
+  voice.envelopeValue = (which = 'amp') => (which === 'filter' ? voice.filterEnv : voice.ampEnv)?.value() ?? 0;
+
+  /** Shorthand the matrix and an inspection panel both want. */
+  voice.ampEnvValue = () => voice.envelopeValue('amp');
+  voice.filterEnvValue = () => voice.envelopeValue('filter');
+
+  /**
+   * Task 7's `ampLevel` destination: a bipolar bias ADDED to the amp envelope's
+   * peak, so zero means "the panel value" and -1 means silence. It is a bias and
+   * not a replacement for the same reason the wavesampler level is one: a matrix
+   * route has to be able to add and subtract.
+   */
+  voice.setAmpLevelBias = (delta, options = {}) => {
+    if (!voice.ampEnv) return 0;
+    const wanted = Number.isFinite(Number(delta)) ? Number(delta) : 0;
+    const bias = Math.min(Math.max(wanted, -1), 1);
+    ampLevelBiasValue = bias;
+    voice.ampEnv.setPeak(1 + bias, options);
+    return bias;
+  };
+
+  voice.ampLevelBias = () => (voice.ampEnv ? ampLevelBiasValue : 0);
+
   /**
    * Task 7's destinations. Each point is a READ value the matrix can inspect, a
    * write whose contribution is clamped to the manual control's own range, and a
@@ -822,6 +1135,52 @@ export function createVoice({ context, parent, read, index = 0 } = {}) {
       read: (i) => voice.unisonState(i).spreadCents,
       route: (i) => voice.cores?.[i]?.spreadRoute ?? 0,
       apply: (i, cents, options) => voice.setUnisonSpreadModulation(i, cents, options),
+    },
+    {
+      destination: 'cutoff1',
+      unit: 'cents',
+      range: [-CUTOFF_MOD_CENTS, CUTOFF_MOD_CENTS],
+      read: () => voice.filterCutoff(0),
+      route: () => voice.cutoffModulation(0),
+      apply: (_i, cents, options) => voice.setCutoffModulation(0, cents, options),
+    },
+    {
+      destination: 'cutoff2',
+      unit: 'cents',
+      range: [-CUTOFF_MOD_CENTS, CUTOFF_MOD_CENTS],
+      read: () => voice.filterCutoff(1),
+      route: () => voice.cutoffModulation(1),
+      apply: (_i, cents, options) => voice.setCutoffModulation(1, cents, options),
+    },
+    {
+      destination: 'ampLevel',
+      unit: 'bias',
+      range: [-1, 1],
+      read: () => (voice.vca ? voice.vca.gain.value : 0),
+      route: () => voice.ampLevelBias(),
+      apply: (_i, bias, options) => voice.setAmpLevelBias(bias, options),
+    },
+  ];
+
+  /**
+   * Task 7's SOURCES that this voice produces. The LFOs are task 7's own; these
+   * are the per-voice ones the plan says enter the same matrix — the amp and
+   * filter envelopes, velocity, key tracking and the per-note random.
+   *
+   * The filter envelope is here and only here: it has a shape, no amount, and no
+   * destination of its own. Its depth is the matrix cell for filter 1 or
+   * filter 2 cutoff.
+   */
+  voice.modulationSources = () => [
+    { source: 'ampEnv', unit: 'level', range: [0, 1], read: () => voice.ampEnvValue() },
+    { source: 'filterEnv', unit: 'level', range: [0, 1], read: () => voice.filterEnvValue() },
+    { source: 'velocity', unit: 'level', range: [0, 1], read: () => voice.velocity },
+    { source: 'random', unit: 'level', range: [0, 1], read: () => voice.random },
+    {
+      source: 'keyTrack',
+      unit: 'ratio',
+      range: [0, 2],
+      read: () => (voice.filters?.[0] ? voice.filterCutoff(0) / (voice.filterState(0)?.panelHz || 1) : 1),
     },
   ];
 
@@ -924,18 +1283,25 @@ export function createVoice({ context, parent, read, index = 0 } = {}) {
     /* Task 4's three mechanisms, live. */
     fm: voice.cores ? voice.cores.map((_core, i) => fmStateOf(voice.cores[i])) : [],
     pitchSpans: voice.cores ? voice.cores.map((_core, i) => voice.livePitchSpan(i)) : [],
-    unison: voice.cores ? voice.cores.map((_core, i) => unisonStateOf(voice.cores[i])) : [],
+        unison: voice.cores ? voice.cores.map((_core, i) => unisonStateOf(voice.cores[i])) : [],
     ring: voice.ringBus ? voice.ringBus.gain.value : 0,
     ringPairs: voice.cores ? voice.ringState(0).pairs() : [],
-    /* `stage` is the voice's own lifecycle, not the amp envelope's stage. Task 6
-     * replaces it with the real ADSR stage once it owns the amplifier. */
-    stage: voice.state,
+    /* Task 6: the filter bank and the two envelopes. `stage` is the AMP
+     * ENVELOPE's stage now, not the voice's own lifecycle — `state` above is
+     * still the lifecycle. */
+    filters: voice.filters ? voice.filters.map((_stage, i) => voice.filterState(i)) : [],
+    ampEnv: voice.ampEnv ? voice.ampEnv.state() : null,
+    filterEnv: voice.filterEnv ? voice.filterEnv.state() : null,
+    stage: voice.ampEnv ? voice.ampEnv.stage() : voice.state,
+    filterStage: voice.filterEnv ? voice.filterEnv.stage() : 'idle',
   });
 
-  /* The store fan-out reaches this voice through `applyCoreModulation`. The
-   * registration is bounded by the pool and undone by nothing, because a voice
-   * is never disposed of — the allocator keeps and re-uses them. */
+  /* The store fan-outs reach this voice through `applyFilter` / `applyEnvelope`.
+   * The registrations are bounded by the pool and undone by nothing, because a
+   * voice is never disposed of — the allocator keeps and re-uses them. */
   registerVoice(voice);
+  registerFilterVoice(voice);
+  registerEnvelopeVoice(voice);
 
   return voice;
 }

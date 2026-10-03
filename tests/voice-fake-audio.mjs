@@ -55,6 +55,21 @@ export function createFakeAudioContext({ sampleRate = 48000, now = 0 } = {}) {
       return node;
     },
     createPeriodicWave: (real, imag, constraints) => ({ real: [...real], imag: [...imag], constraints }),
+    createBiquadFilter: () => {
+      const node = makeNode(context, 'biquad');
+      node.type = 'lowpass';
+      node.frequency = makeParam(350);
+      node.detune = makeParam(0);
+      node.Q = makeParam(1);
+      node.gain = makeParam(0);
+      return node;
+    },
+    createWaveShaper: () => {
+      const node = makeNode(context, 'waveShaper');
+      node.curve = null;
+      node.oversample = 'none';
+      return node;
+    },
     createBufferCalls: 0,
     createBuffer(channels, length, rate) {
       context.createBufferCalls += 1;

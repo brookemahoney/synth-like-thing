@@ -71,12 +71,15 @@ test('a voice is three cores, one summing chain, one entry point', () => {
   assert.ok(voice.entry.connections.includes(parent), 'the entry point is what reaches the parent');
   assert.equal(voice.entry.disconnects, 0);
 
-  // Every core sums into the voice mix, and the mix is the only thing before the
-  // entry point — so one disconnection severs the whole subtree.
+  // Every core sums into the voice mix, and the mix is the ONLY thing before the
+  // entry point — so one disconnection severs the whole subtree. Task 6 put the
+  // filter bank on the way, which is inside that subtree and so still covered.
   for (let i = 0; i < CORE_COUNT; i += 1) {
     assert.ok(voice.core(i).gain.connections.includes(voice.mix), `core ${i} sums into the voice mix`);
-    assert.ok(voice.mix.connections.includes(voice.vca));
   }
+  assert.ok(voice.mix.connections.includes(voice.filters[0].input), 'the mix feeds filter 1');
+  assert.ok(voice.filters[0].output.connections.includes(voice.filters[1].input), 'filter 1 feeds filter 2');
+  assert.ok(voice.filters[1].output.connections.includes(voice.vca), 'filter 2 feeds the amplifier');
   assert.ok(voice.vca.connections.includes(voice.entry));
   assert.ok(voice.ringBus.connections.includes(voice.mix), 'the ring bus is a summing input, ready for task 4');
   assert.ok(voice.waveSlot.connections.includes(voice.mix), 'the wavesampler slot is a summing input, ready for task 5');
@@ -400,6 +403,17 @@ test('the voice exposes its live state for the sequencer and the meter', () => {
   assert.equal(state.noteHz, midiToHz(57));
   assert.deepEqual(state.pitch, [220, 220, 220]);
   assert.deepEqual(state.levels, [0.8, 0.5, 0.35]);
-  assert.equal(state.amplitude, 1, 'the voice is at full envelope until task 6 owns the amp stage');
-  assert.equal(state.stage, 'sounding');
+  // Task 6 owns the amplifier now, so `stage` is the amp envelope's own stage
+  // and `amplitude` is the envelope's level, not a fixed 1.
+  assert.equal(state.state, 'sounding', 'the voice lifecycle is still reported as sounding');
+  assert.equal(state.stage, 'attack', 'and the amp envelope is in its attack');
+  assert.equal(state.ampEnv.attack, 0.01, 'on the init patch');
+  assert.equal(state.ampEnv.sustain, 0.7);
+  assert.equal(state.ampEnv.value, 0, 'and the envelope itself is at zero at the note-on instant');
+  // The shared harness applies a scheduled ramp as soon as it is written, so the
+  // param already shows the last segment's end point. In a browser this is the
+  // value the meter would see rising over the attack.
+  assert.equal(state.amplitude, 0.7, 'the amplifier param is where the envelope has scheduled it');
+  assert.equal(state.filters.length, 2, 'both filter stages are reported');
+  assert.equal(state.filterStage, 'attack', 'and the filter envelope runs its own ADSR');
 });

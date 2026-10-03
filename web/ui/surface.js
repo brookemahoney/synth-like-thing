@@ -228,10 +228,21 @@ export const REGIONS = [
     sections: KIT_VOICES.map((voice) => ({
       id: `kit-${voice}`,
       title: VOICE_NAMES[voice],
+      /* The kit's four parameters, all four rendered: tune, decay, level and pan. Pan
+         is the one that was missing, which left a parameter wired all the way to every
+         voice's StereoPannerNode with no way to reach it from the page. `hfader` is
+         the control for it because pan is a left/right position — the same control this
+         page uses for every other horizontal parameter (master volume, wave scan,
+         delay mix) — and it carries aria-orientation="horizontal" to say so. The
+         control factory reads -1..1, and the unit and the centred default, from the
+         schema in ui/params.js: this file declares a key, a legend and a hue and
+         nothing else. `.panel__grid` is a wrapping flex row, so the fourth control
+         costs no stylesheet change. */
       controls: [
         { type: 'rotary', key: `kit.${voice}.tune`, label: 'Tune', hue: 'rose' },
         { type: 'rotary', key: `kit.${voice}.decay`, label: 'Decay', hue: 'rose' },
         { type: 'vfader', key: `kit.${voice}.level`, label: 'Level', hue: 'rose' },
+        { type: 'hfader', key: `kit.${voice}.pan`, label: 'Pan', hue: 'rose' },
       ],
     })),
   },
