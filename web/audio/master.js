@@ -4,59 +4,71 @@
  * THE CHAIN, AND WHO OWNS WHAT
  *
  *   voice mixers ─┐
- *   drum voices  ─┴─> mixBus ─> masterBus ─> masterOut ─> destination
+ *   drum voices  ─┴─> mixBus ─> masterBus ─> chainInput ─> chainOutput ─> masterOut ─> destination
  *
  *   mixBus      the summing point. Every voice's entry point and (task 9) every
  *               drum voice connects here. Nothing else in the instrument writes
  *               to the output.
- *   masterBus   the level stage, bound to `global.volume` through the ramp bridge
- *               so a volume drag ramps instead of stepping.
- *   masterOut   the terminal that reaches the speakers. Task 8 inserts its
- *               3-band EQ -> delay -> reverb -> limiter chain BETWEEN masterBus
- *               and masterOut, and terminates the chain into masterOut. That
- *               means the effects chain lands without this file changing and
- *               without any voice being rewired.
+ *   masterBus   a unity summing stage. It used to be the level stage: task 3 bound
+ *               `global.volume` to its gain, with a ramp so a volume drag would not
+ *               step. Task 8 needs master volume BEFORE the limiter, and the
+ *               limiter lives inside the effects chain, so the binding moved
+ *               downstream to `masterVolume` — the node the chain places between
+ *               the reverb and the limiter. This one is back to being a plain sum.
+ *               See the header of audio/effects.js for the full reasoning.
+ *   chainInput  the head of the chain task 8 owns: 3-band EQ, delay, reverb,
+ *               master volume, limiter, analyser.
+ *   chainOutput the tail of that chain — the analyser, the last node before the
+ *               speakers.
+ *   masterOut   the terminal that reaches the speakers, and the side tap task 13's
+ *               level meter hangs off.
  *
- * WHY THE LEVEL STAGE IS BEFORE THE CHAIN
- *   The plan puts master volume before the limiter so that a volume change is
- *   what the limiter protects, rather than something that can push the limiter
- *   into permanent limiting.
+ * WHY THE CHAIN LANDS WITHOUT ANY VOICE BEING REWIRED
+ *   Task 3 deliberately left masterOut as a node to terminate into rather than
+ *   pointing masterBus straight at the destination. Task 8's chain sits between
+ *   masterBus and masterOut, so the effects arrive with no change to any voice, no
+ *   change to any entry point, and no second path to the speakers.
  *
  *   MIX_BUS        the summing gain every voice feeds
- *   MASTER_BUS     the gain bound to global.volume
- *   MASTER_OUT     the node the effects chain terminates into
+ *   MASTER_BUS     the unity sum between the voices and the chain
+ *   CHAIN_INPUT    audio/effects.js — the effects chain's head
+ *   CHAIN_OUTPUT   audio/effects.js — the effects chain's tail
+ *   MASTER_OUT     the node the chain terminates into, and the meter's tap
  *   destination    the context's real destination
  */
 
 import { audioContext } from './context.js';
-import { rampBridge } from './ramp.js';
-import { store } from '../ui/params.js';
+import { chainInput, chainOutput } from './effects.js';
 import { createGain } from './nodes.js';
 
 /** The summing point for voices and drums. */
 export const mixBus = createGain(audioContext, 'master-mix');
 
-/** Master level. Ramped by the bridge, never assigned at gesture time. */
+/**
+ * A unity summing stage. `global.volume` is NOT bound to it any more: master volume
+ * has to sit before the limiter, and the limiter lives inside the effects chain, so
+ * the binding now lives on `masterVolume` in audio/effects.js, downstream of the
+ * reverb. It stays a real node rather than being deleted so every voice's entry
+ * point keeps a stable parent.
+ */
 export const masterBus = createGain(audioContext, 'master-bus');
-masterBus.gain.value = store.get('global.volume') ?? 1;
+masterBus.gain.value = 1;
 
-/** The terminal the effects chain ends in. Task 8 fills the space above it. */
+/** The terminal the effects chain ends in. */
 export const masterOut = createGain(audioContext, 'master-out');
 masterOut.gain.value = 1;
 
 mixBus.connect(masterBus);
-masterBus.connect(masterOut);
+masterBus.connect(chainInput);
+chainOutput.connect(masterOut);
 masterOut.connect(audioContext.destination);
 
-/* The one singleton parameter in the instrument, bound through the bridge that
- * ui/controls.js expects. Every other parameter with more than one AudioParam
- * behind it is fanned out by its own module through audio/automation.js, which
- * uses the same ramp length. */
-rampBridge.bind('global.volume', masterBus.gain, { context: audioContext, mode: 'ramp' });
-
 /**
- * A side tap on the signal leaving the chain. Task 13's level meter hangs off
- * this; task 8 terminates its chain INTO masterOut rather than off it.
+ * A side tap on the signal leaving the chain. Task 13's level meter hangs off this.
+ * It is parallel to the destination, so a meter connected here does not change what
+ * the speakers receive — and an analyser connected here but not connected onward
+ * reads zero, which is why the tap returns the node and expects the caller to
+ * terminate it.
  */
 export function connectToOutput(node) {
   masterOut.connect(node);
