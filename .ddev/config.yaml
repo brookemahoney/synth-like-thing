@@ -1,6 +1,6 @@
 name: synth-like-thing
 type: php
-docroot: web
+docroot: docs
 php_version: "8.4"
 webserver_type: nginx-fpm
 xdebug_enabled: false
