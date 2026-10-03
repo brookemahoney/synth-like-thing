@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>Atelier — a browser synthesiser</title>
+    <meta
+      name="description"
+      content="A browser synthesiser: three oscillators, two filters, three LFOs, a modulation matrix, an 808 kit, a sequencer and an arpeggiator."
+    />
+    <link rel="stylesheet" href="./styles/base.css" />
+    <link rel="stylesheet" href="./styles/controls.css" />
+    <!-- An empty data URI: the instrument ships no binary media, and this stops
+         the browser asking for a favicon that is not there. -->
+    <link rel="icon" href="data:," />
+  </head>
+  <body>
+    <a class="skip-link" href="#instrument">Skip to the instrument</a>
+
+    <main class="instrument" id="instrument" data-surface>
+      <header class="masthead">
+        <h1 class="masthead__title">Atelier</h1>
+        <p class="masthead__sub">
+          Drag a knob or a fader to change it. With one focused: arrow keys step, shift is fine,
+          page keys are coarse, Home and End are the extremes, double-click is the default.
+        </p>
+      </header>
+
+      <noscript>
+        <p class="notice">The instrument needs JavaScript: every control is drawn from the parameter store.</p>
+      </noscript>
+
+      <!-- The eight functional regions, in vertical order. Each is declared here and
+           filled in by web/ui/surface.js; later tasks fill the regions it does not
+           yet own. The order is a contract: see ui/surface.js REGION_ORDER. -->
+
+      <section class="region region--strip" data-region="global-strip" aria-labelledby="region-global-strip">
+        <h2 class="region__title" id="region-global-strip">Global</h2>
+        <div class="region__panels" data-panels></div>
+      </section>
+
+      <section class="region region--row" data-region="voice-row" aria-labelledby="region-voice-row">
+        <h2 class="region__title" id="region-voice-row">Voices</h2>
+        <div class="region__panels" data-panels></div>
+      </section>
+
+      <section class="region region--row" data-region="tone-row" aria-labelledby="region-tone-row">
+        <h2 class="region__title" id="region-tone-row">Tone</h2>
+        <div class="region__panels" data-panels></div>
+      </section>
+
+      <section class="region region--row" data-region="modulation-row" aria-labelledby="region-modulation-row">
+        <h2 class="region__title" id="region-modulation-row">Modulation</h2>
+        <div class="region__panels" data-panels></div>
+      </section>
+
+      <section class="region region--row" data-region="effects-row" aria-labelledby="region-effects-row">
+        <h2 class="region__title" id="region-effects-row">Effects</h2>
+        <div class="region__panels" data-panels></div>
+      </section>
+
+      <section class="region region--row region--kit" data-region="drum-kit" aria-labelledby="region-drum-kit">
+        <h2 class="region__title" id="region-drum-kit">808 Kit</h2>
+        <div class="region__panels" data-panels></div>
+      </section>
+
+      <section class="region region--wide" data-region="sequencer" aria-labelledby="region-sequencer">
+        <h2 class="region__title" id="region-sequencer">Sequencer &amp; Arpeggiator</h2>
+        <div class="region__panels" data-panels></div>
+      </section>
+
+      <section class="region region--wide" data-region="keyboard" aria-labelledby="region-keyboard">
+        <h2 class="region__title" id="region-keyboard">Keyboard</h2>
+        <div class="region__panels" data-panels></div>
+        <!-- The keybed is laid out here so the region is visible; it becomes playable
+             with the input module, which is the only thing that may bind notes. -->
+        <div class="keybed" aria-hidden="true">
+          <div class="keybed__whites">
+            <span class="key key--white"></span><span class="key key--white"></span><span class="key key--white"></span>
+            <span class="key key--white"></span><span class="key key--white"></span><span class="key key--white"></span>
+            <span class="key key--white"></span><span class="key key--white"></span><span class="key key--white"></span>
+            <span class="key key--white"></span><span class="key key--white"></span><span class="key key--white"></span>
+            <span class="key key--white"></span><span class="key key--white"></span><span class="key key--white"></span>
+            <span class="key key--white"></span>
+          </div>
+          <div class="keybed__blacks">
+            <span class="key key--black"></span><span class="key key--black"></span>
+            <span class="key key--black"></span><span class="key key--black"></span>
+            <span class="key key--black"></span><span class="key key--black"></span>
+            <span class="key key--black"></span><span class="key key--black"></span>
+            <span class="key key--black"></span><span class="key key--black"></span>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="./ui/main.js"></script>
+  </body>
+</html>

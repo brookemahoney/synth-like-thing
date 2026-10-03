@@ -1,0 +1,375 @@
+/* =============================================================================
+   base.css — the ground the instrument is painted on: one place for the palette
+   and the layout metrics, and one region layout every later task inherits.
+
+   Everything colour is a custom property on :root. Nothing below hard-codes a
+   colour, so the impressionist repaint in task 002 is a change to this file and
+   to the rules that read these properties, not a change to every control.
+
+   System font stacks only: no webfont, no network request.
+   ========================================================================== */
+
+:root {
+  /* --- the palette ------------------------------------------------------- */
+  --ground: #f2ead8; /* parchment */
+  --ground-deep: #e7dcc4; /* the shaded edge of the sheet */
+  --ink: #2b2722; /* charcoal */
+  --ink-soft: #6b6153; /* charcoal, thinned */
+  --ink-faint: #9a8f7c;
+
+  --sage: #8ba183;
+  --sky: #9ec0cc; /* atrium sky */
+  --rose: #c08a86; /* rose madder */
+  --ochre: #d0a552;
+  --lavender: #b0a3c2;
+
+  /* Deep variants, for a control that sits on its own hue. */
+  --sage-deep: #5c6b55;
+  --sky-deep: #5d8695;
+  --rose-deep: #8e5c58;
+  --ochre-deep: #8f6a1f;
+  --lavender-deep: #6b5f7c;
+
+  --panel: #f7f1e2;
+  --panel-edge: #d8ccb0;
+  --panel-shade: #ece2cb;
+  --focus: var(--ink);
+
+  /* --- layout metrics ---------------------------------------------------- */
+  --gap: 0.75rem;
+  --gap-tight: 0.375rem;
+  --radius: 0.5rem;
+  --radius-paint: 0.3rem;
+  --panel-pad: 0.7rem;
+  --region-pad: 0.9rem;
+  --hairline: 1px;
+  --knob: 3.1rem;
+  --knob-sm: 2.4rem;
+  --fader-long: 5.5rem;
+  --fader-short: 3.2rem;
+  --fader-thick: 1.5rem;
+  --key-w: 2.6rem;
+  --key-h: 7rem;
+
+  /* --- type -------------------------------------------------------------- */
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-readout: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --fs-micro: 0.6875rem;
+  --fs-small: 0.8125rem;
+  --fs-body: 0.9375rem;
+  --fs-title: 1.25rem;
+  --fs-display: 1.75rem;
+}
+
+/* Each control resolves its own hue through one property, so the skin in
+   controls.css is written once. */
+[data-hue="sage"] { --hue: var(--sage); --hue-deep: var(--sage-deep); }
+[data-hue="sky"] { --hue: var(--sky); --hue-deep: var(--sky-deep); }
+[data-hue="rose"] { --hue: var(--rose); --hue-deep: var(--rose-deep); }
+[data-hue="ochre"] { --hue: var(--ochre); --hue-deep: var(--ochre-deep); }
+[data-hue="lavender"] { --hue: var(--lavender); --hue-deep: var(--lavender-deep); }
+
+/* --- reset ---------------------------------------------------------------- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: var(--fs-body);
+  line-height: 1.45;
+  -webkit-text-size-adjust: 100%;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+:where(button, select, input) {
+  font: inherit;
+  color: inherit;
+}
+
+/* One focus treatment for the whole instrument: a charcoal ring, always drawn
+   above the paint, never removed. */
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.skip-link {
+  position: absolute;
+  left: -100vw;
+  top: 0;
+  z-index: 10;
+  padding: 0.5rem 0.75rem;
+  background: var(--ink);
+  color: var(--ground);
+  border-radius: 0 0 var(--radius) 0;
+}
+
+.skip-link:focus {
+  left: 0;
+}
+
+/* --- the sheet ----------------------------------------------------------- */
+
+.instrument {
+  max-width: 96rem;
+  margin: 0 auto;
+  padding: var(--region-pad);
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+
+.masthead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--gap);
+  padding-bottom: var(--gap-tight);
+  border-bottom: var(--hairline) solid var(--panel-edge);
+}
+
+.masthead__title {
+  font-size: var(--fs-display);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.masthead__sub {
+  flex: 1 1 22rem;
+  color: var(--ink-soft);
+  font-size: var(--fs-small);
+  max-width: 60ch;
+}
+
+.notice {
+  padding: var(--panel-pad);
+  border: var(--hairline) solid var(--panel-edge);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+/* --- regions ------------------------------------------------------------- */
+
+.region {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-tight);
+  padding: var(--region-pad);
+  border: var(--hairline) solid var(--panel-edge);
+  border-radius: var(--radius);
+  background: var(--ground-deep);
+}
+
+.region__title {
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.region__panels {
+  display: flex;
+  flex-wrap: wrap;
+  /* panels hug their contents: a stretched panel reads as an empty box, and the
+     repaint in task 002 is what makes the rows line up */
+  align-items: flex-start;
+  gap: var(--gap);
+}
+
+/* The strip and the sequencer are the full width of the instrument. */
+.region--strip,
+.region--wide {
+  grid-column: 1 / -1;
+}
+
+/* --- panels -------------------------------------------------------------- */
+
+.panel {
+  flex: 1 1 15rem;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-tight);
+  padding: var(--panel-pad);
+  border: var(--hairline) solid var(--panel-edge);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+.panel--matrix {
+  flex: 1 1 40rem;
+}
+
+.panel--steps {
+  flex: 1 1 32rem;
+}
+
+.region--kit .panel {
+  flex: 1 1 11rem;
+}
+
+.panel__title {
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  padding-bottom: 0.2rem;
+  border-bottom: var(--hairline) solid var(--panel-shade);
+}
+
+.panel__grid {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--gap);
+}
+
+.panel__caption {
+  font-size: var(--fs-micro);
+  color: var(--ink-faint);
+  font-style: italic;
+}
+
+/* --- empty grids, laid out for the module that will fill them ------------- */
+
+.headgrid {
+  display: grid;
+  grid-template-columns: 4.25rem repeat(8, minmax(2.4rem, 1fr));
+  gap: 2px;
+  overflow-x: auto;
+}
+
+.headgrid__corner,
+.headgrid__cell {
+  min-height: 1.5rem;
+  background: var(--panel-shade);
+  border-radius: 2px;
+}
+
+.headgrid__head {
+  font-size: 0.625rem;
+  color: var(--ink-soft);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.headgrid__head--row {
+  text-align: right;
+  padding-right: 0.35rem;
+}
+
+.stepruler {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 2px;
+}
+
+.stepruler__step {
+  font-family: var(--font-readout);
+  font-size: var(--fs-micro);
+  color: var(--ink-soft);
+  text-align: center;
+  padding: 0.2rem 0;
+  background: var(--panel-shade);
+  border-radius: 2px;
+}
+
+.stepruler__step:nth-child(4n + 1) {
+  color: var(--ink);
+  background: var(--panel-edge);
+}
+
+/* --- the keybed (layout only until the input module binds notes) ---------- */
+
+.keybed {
+  position: relative;
+  height: var(--key-h);
+  margin-top: var(--gap-tight);
+  user-select: none;
+}
+
+.keybed__whites {
+  display: flex;
+  height: 100%;
+  gap: 1px;
+}
+
+/* The black keys sit on the same 15-column grid as the whites, so a black key
+   lands between the two whites it belongs to, 62% of a white key's width. */
+.keybed__blacks {
+  position: absolute;
+  inset: 0 0 38% 0;
+  display: grid;
+  grid-template-columns: repeat(15, 1fr);
+  gap: 1px;
+  align-items: start;
+}
+
+.key--black {
+  width: 62%;
+  height: 100%;
+  justify-self: center;
+  background: var(--ink);
+  border-radius: 0 0 3px 3px;
+  opacity: 0.86;
+}
+
+.key--black:nth-child(1) { grid-column: 1; }
+.key--black:nth-child(2) { grid-column: 2; }
+.key--black:nth-child(3) { grid-column: 4; }
+.key--black:nth-child(4) { grid-column: 5; }
+.key--black:nth-child(5) { grid-column: 6; }
+.key--black:nth-child(6) { grid-column: 8; }
+.key--black:nth-child(7) { grid-column: 9; }
+.key--black:nth-child(8) { grid-column: 10; }
+.key--black:nth-child(9) { grid-column: 12; }
+.key--black:nth-child(10) { grid-column: 13; }
+
+.key--white {
+  flex: 1;
+  background: #fbf7ec;
+  border: var(--hairline) solid var(--panel-edge);
+  border-radius: 0 0 3px 3px;
+}
+
+/* --- narrow viewports ---------------------------------------------------- */
+
+@media (max-width: 60rem) {
+  .region__panels,
+  .panel__grid {
+    gap: var(--gap-tight);
+  }
+
+  .panel,
+  .region--kit .panel {
+    flex-basis: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
