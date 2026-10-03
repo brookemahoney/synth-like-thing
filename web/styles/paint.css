@@ -339,6 +339,14 @@ html[data-paint-layer-on="false"] .paint-layer {
    REGION_ORDER in ui/surface.js, and no rule here changes it. */
 
 @media (max-width: 56.25rem) {
+  :root {
+    /* THE WIDTH OF A WHITE KEY UNDER A FINGER. 1.5rem is the narrowest key that is
+       still a target rather than a hairline, and it is what puts thirteen of them —
+       just under two octaves — in the window with no panning at all. Above the
+       breakpoint the keys share the width of the bed instead, and this is not read. */
+    --key-w-touch: 1.5rem;
+  }
+
   .instrument {
     padding: var(--gap-tight);
   }
@@ -378,7 +386,62 @@ html[data-paint-layer-on="false"] .paint-layer {
     --knob: 2.7rem;
   }
 
+  /* --- the keybed pans; the page does not ----------------------------------
+     49 keys is 29 white and 20 black. At any width a finger can hit, the white
+     keys have to be at least ~1.5rem to land on, so the bed's content is ~724px
+     of keyboard inside a ~340px window. Nothing here can make that content fit:
+     the only question is whether the overflow happens INSIDE the keybed, where a
+     pan reaches it, or in the document, where it drags every region sideways and
+     the player has to scroll back to find the controls again.
+
+     So the keybed becomes its own scroll container. That is not a compromise
+     forced on a musician — a keyboard that pans under the finger is what every
+     phone piano does, and it is the only way to keep a key big enough to hit.
+     A musician at 390px gets thirteen white keys (just under two octaves) without
+     moving at all, and the rest of the four octaves a flick away. The alternative,
+     squeezing all 49 into the window, gives 11px keys: unplayable, and every note
+     in the same place every time. */
+  .keybed-wrap {
+    /* THE SCROLLER. The wrapper is bounded by its region, so `max-width` is not
+       needed and the keys cannot drag the document wider. `padding` is the room
+       the focus ring needs: :focus-visible draws 2px of outline 2px out, with a
+       4px halo, and a scroller clips what it does not have room for. */
+    overflow-x: auto;
+    min-width: 0;
+    padding: var(--gap-tight);
+  }
+
   .keybed {
+    /* The bed is CONTENT-WIDED and the wrapper above is what is bounded: the two
+       layers inside the bed (the white keys in flow, the black keys laid over
+       them) are both sized against this box, so they move together when it pans.
+       `max-content` rather than a count of keys times a width, so this stays
+       true when KEY_LOW and KEY_HIGH change in ui/keyboard.js. */
+    width: max-content;
     height: 6rem;
+    /* The bed's inline style says `touch-action: none`, which is right above the
+       breakpoint — a drag there is a glissando and must not scroll the page — and
+       wrong here, where it would also stop a finger panning the bed and strand
+       the top three octaves. So a horizontal pan is handed back to the browser
+       at this width and only this width: the finger changes register sideways,
+       and a vertical drag still belongs to the player. The declaration is inline,
+       so only !important outranks it; above the breakpoint this rule does not
+       apply and the bed keeps `none`. */
+    touch-action: pan-x !important;
+  }
+
+  .key--white {
+    /* A sized key, not a divided one: 29 keys sharing the window is what made
+       them 14px wide. No shrink, so the row's max-content IS the bed's width. */
+    flex: 0 0 var(--key-w-touch);
+  }
+
+  /* The two lines of prose in the wrapper describe the instrument, not the notes
+     that happen to be in view, so they stay put while the bed pans underneath them:
+     pinned to the left edge of the scrollport, at the width they already have. */
+  .keybed__off,
+  .keybed__hint {
+    position: sticky;
+    left: 0;
   }
 }

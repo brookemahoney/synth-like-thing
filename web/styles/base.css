@@ -397,6 +397,15 @@ p {
   width: 62%;
   height: 100%;
   justify-self: center;
+  /* A grid track is `minmax(auto, 1fr)`: before the free space is shared out, every
+     track is floored at the min-content of the key on it — a nowrap note label, which
+     is wider for C# than for D#. Those floors are unequal, so the leftover is shared
+     on top of them and the tracks stop being equal, and a black key slides off the
+     boundary between its two white keys. `min-width: 0` drops the floor and lets the
+     29 columns be 29 equal shares, which is the whole of the placement this module
+     documents: a black key is 62% of a white key, centred on the seam. Above the
+     breakpoint the tracks are far wider than any label, so nothing moves. */
+  min-width: 0;
   /* A painted key, not a machined one: warm charcoal with a rose wash over it,
      so the keybed is the darkest thing on the sheet and still part of the paint. */
   background: linear-gradient(rgb(var(--rose-rgb) / 0.62), var(--key-deep) 72%);
