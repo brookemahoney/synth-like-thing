@@ -378,7 +378,7 @@ test('a valid import is applied in full and is an exact round trip', () => {
   assert.equal(system.save(3, { name: 'Round Trip' }).ok, true);
   const exported = system.export(3);
   assert.equal(exported.ok, true, `export refused: ${exported.reason ?? ''}`);
-  assert.match(exported.filename, /^atelier-.*round-trip\.json$/i, 'the filename carries the patch name');
+  assert.match(exported.filename, /^synth-like-thing-.*round-trip\.json$/i, 'the filename carries the patch name');
 
   const document_ = JSON.parse(exported.text);
   assert.equal(document_.schemaVersion, SCHEMA_VERSION);

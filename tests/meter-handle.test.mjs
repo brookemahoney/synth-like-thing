@@ -400,11 +400,11 @@ test('localStorage is read on ACCESS, so a preset saved after load is visible', 
   const readsBefore = src.internals.storage.reads;
 
   /* A preset saved after the page loaded — exactly what the self-validation does. */
-  src.internals.storage.put('atelier.presets.v1', '{"slots":["pad"]}');
-  src.internals.storage.put('atelier.waveform', 'IDAT');
+  src.internals.storage.put('synth-like-thing.presets.v1', '{"slots":["pad"]}');
+  src.internals.storage.put('synth-like-thing.waveform', 'IDAT');
 
   const after = handle.storage();
-  assert.deepEqual(after, { 'atelier.presets.v1': '{"slots":["pad"]}', 'atelier.waveform': 'IDAT' });
+  assert.deepEqual(after, { 'synth-like-thing.presets.v1': '{"slots":["pad"]}', 'synth-like-thing.waveform': 'IDAT' });
   assert.ok(Object.isFrozen(after));
   assert.ok(
     src.internals.storage.reads > readsBefore,

@@ -754,7 +754,7 @@ export function createPresetSystem({
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '');
-    return `atelier-${slug.length > 0 ? slug : 'patch'}.json`;
+    return `synth-like-thing-${slug.length > 0 ? slug : 'patch'}.json`;
   }
 
   /** The stored document of a slot, as the bytes of a file. */

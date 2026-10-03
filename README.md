@@ -1,4 +1,4 @@
-# Atelier
+# Synth-Like-Thing
 
 A Monet-impressionist-themed polyphonic browser synthesiser, served from the `web/`
 docroot of a DDEV project named `synth-like-thing` and reachable at <https://synth-like-thing.ddev.site/>: three

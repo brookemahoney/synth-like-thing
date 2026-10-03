@@ -1,5 +1,5 @@
 {
-  "name": "atelier",
+  "name": "synth-like-thing",
   "version": "0.1.0",
   "private": true,
   "description": "A browser synthesiser served from web/. This file is repo tooling only: the site in web/ has no build step, no dependencies and no bundler, and must never gain any.",
